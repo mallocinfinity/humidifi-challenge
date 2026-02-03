@@ -1,6 +1,7 @@
-// OrderBookRow component - Phase 4
-// Displays single price level with depth bar via CSS custom property
+// OrderBookRow component - Phase 5
+// Memoized row with custom comparator for optimal re-renders
 
+import { memo } from 'react';
 import type { OrderBookRowProps } from '@/types';
 
 // Format price with commas and 2 decimals
@@ -25,7 +26,31 @@ function formatSize(size: number): string {
   });
 }
 
-export function OrderBookRow({ level, side, maxCumulative }: OrderBookRowProps) {
+// Custom comparator: only re-render if displayed values actually changed
+function arePropsEqual(prev: OrderBookRowProps, next: OrderBookRowProps): boolean {
+  // Check level values that affect display
+  if (prev.level.price !== next.level.price) return false;
+  if (prev.level.size !== next.level.size) return false;
+  if (prev.level.cumulative !== next.level.cumulative) return false;
+  if (prev.level.depthPercent !== next.level.depthPercent) return false;
+
+  // Only re-render for maxCumulative if it changed significantly (>1%)
+  // Small changes in maxCumulative cause imperceptible depth bar differences
+  if (prev.maxCumulative > 0 && next.maxCumulative > 0) {
+    const percentChange = Math.abs(next.maxCumulative - prev.maxCumulative) / prev.maxCumulative;
+    if (percentChange > 0.01) return false;
+  } else if (prev.maxCumulative !== next.maxCumulative) {
+    // Edge case: one is 0
+    return false;
+  }
+
+  // Side is static, but check anyway
+  if (prev.side !== next.side) return false;
+
+  return true;
+}
+
+function OrderBookRowComponent({ level, side, maxCumulative }: OrderBookRowProps) {
   // Calculate depth percentage for the bar
   const depthWidth = maxCumulative > 0
     ? (level.cumulative / maxCumulative) * 100
@@ -43,3 +68,5 @@ export function OrderBookRow({ level, side, maxCumulative }: OrderBookRowProps) 
     </div>
   );
 }
+
+export const OrderBookRow = memo(OrderBookRowComponent, arePropsEqual);

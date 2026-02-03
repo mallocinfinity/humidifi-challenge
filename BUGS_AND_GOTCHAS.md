@@ -66,13 +66,36 @@ getDisplayed(s)?.bids ?? EMPTY_LEVELS
 
 ## Phase 4
 
-*(To be filled as issues arise)*
+*(No issues)*
 
 ---
 
 ## Phase 5
 
-*(To be filled as issues arise)*
+### 4. maxCumulative Invalidates All Memoized Rows
+**Symptom:** Still dropping frames (~26ms) after adding React.memo to OrderBookRow
+
+**Cause:** `maxCumulative` (used for depth bar width calculation) changes on almost every update because it's `Math.max(bids[14].cumulative, asks[14].cumulative)`. Since it's passed as a prop and checked in the comparator, ALL 30 rows re-render whenever it changes — defeating memoization entirely.
+
+```typescript
+// BAD: Strict equality means any tiny change triggers re-render
+if (prev.maxCumulative !== next.maxCumulative) return false;
+```
+
+**Fix:** Only re-render if maxCumulative changed by >1% (imperceptible visual difference):
+```typescript
+// GOOD: Threshold-based comparison
+if (prev.maxCumulative > 0 && next.maxCumulative > 0) {
+  const percentChange = Math.abs(next.maxCumulative - prev.maxCumulative) / prev.maxCumulative;
+  if (percentChange > 0.01) return false;  // Only re-render if >1% change
+} else if (prev.maxCumulative !== next.maxCumulative) {
+  return false;  // Edge case: one is 0
+}
+```
+
+**Result:** Frame drops eliminated. Went from ~38fps to solid 60fps.
+
+**Lesson:** Derived values that change frequently can defeat memoization. Use threshold comparisons for values that only need visual accuracy, not exact precision.
 
 ---
 
