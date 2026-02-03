@@ -1,8 +1,14 @@
 import './App.css';
-import { useWorker } from '@/hooks/useWorker';
+import { useWorker, useConnectionStatus, useMetrics, useSpread } from '@/hooks';
 
 function App() {
-  const { status, messageCount } = useWorker();
+  // Initialize worker connection
+  useWorker();
+
+  // Get state from store
+  const status = useConnectionStatus();
+  const metrics = useMetrics();
+  const spread = useSpread();
 
   return (
     <div className="app">
@@ -11,8 +17,21 @@ function App() {
         <span className={`status-dot status-${status}`} />
         <span>{status}</span>
       </div>
-      <p className="message-count">Messages received: {messageCount}</p>
-      <p className="hint">Open console to see orderbook updates</p>
+
+      {spread && (
+        <div className="spread-display">
+          <p>Midpoint: ${spread.midpoint.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+          <p>Spread: ${spread.spread.toFixed(2)} ({(spread.spreadPercent * 100).toFixed(4)}%)</p>
+        </div>
+      )}
+
+      <div className="metrics-display">
+        <p>Messages/sec: {metrics.messagesPerSecond}</p>
+        <p>Latency: {metrics.latencyMs.avg.toFixed(1)}ms avg</p>
+        <p>FPS: {metrics.fps}</p>
+      </div>
+
+      <p className="hint">Phase 3: Data flows through Zustand + RAF</p>
     </div>
   );
 }

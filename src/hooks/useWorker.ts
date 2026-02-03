@@ -1,16 +1,15 @@
-// Worker lifecycle hook - Phase 1
-import { useEffect, useRef, useState } from 'react';
-import type { WorkerToMainMessage, ConnectionStatus } from '@/types';
+// Worker lifecycle hook - Phase 3
+// Creates worker, delegates messages to RAF bridge
 
-export interface UseWorkerReturn {
-  status: ConnectionStatus;
-  messageCount: number;
-}
+import { useEffect, useRef } from 'react';
+import type { WorkerToMainMessage } from '@/types';
+import { useRAFBridge } from './useRAFBridge';
+import { useOrderbookStore } from '@/store/orderbook';
 
-export function useWorker(): UseWorkerReturn {
+export function useWorker(): void {
   const workerRef = useRef<Worker | null>(null);
-  const [status, setStatus] = useState<ConnectionStatus>('disconnected');
-  const [messageCount, setMessageCount] = useState(0);
+  const { handleWorkerMessage } = useRAFBridge();
+  const setConnectionStatus = useOrderbookStore((s) => s.setConnectionStatus);
 
   useEffect(() => {
     // Create worker
@@ -20,35 +19,14 @@ export function useWorker(): UseWorkerReturn {
     );
     workerRef.current = worker;
 
-    // Handle messages from worker
+    // Handle messages from worker via RAF bridge
     worker.onmessage = (event: MessageEvent<WorkerToMainMessage>) => {
-      const message = event.data;
-
-      switch (message.type) {
-        case 'STATUS_CHANGE':
-          setStatus(message.status);
-          console.log('[Worker] Status:', message.status);
-          break;
-
-        case 'ORDERBOOK_UPDATE':
-          setMessageCount((c) => c + 1);
-          console.log('[Worker] Orderbook update:', {
-            bestBid: message.data.bids[0]?.price,
-            bestAsk: message.data.asks[0]?.price,
-            spread: message.data.spread.toFixed(2),
-            levels: message.data.bids.length,
-          });
-          break;
-
-        case 'METRICS':
-          console.log('[Worker] Metrics:', message.data);
-          break;
-      }
+      handleWorkerMessage(event.data);
     };
 
     worker.onerror = (error) => {
       console.error('[Worker] Error:', error);
-      setStatus('error');
+      setConnectionStatus('error', 'Worker error');
     };
 
     // Connect
@@ -60,7 +38,5 @@ export function useWorker(): UseWorkerReturn {
       worker.terminate();
       workerRef.current = null;
     };
-  }, []);
-
-  return { status, messageCount };
+  }, [handleWorkerMessage, setConnectionStatus]);
 }

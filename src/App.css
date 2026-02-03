@@ -47,10 +47,38 @@
   50% { opacity: 0.5; }
 }
 
-.message-count {
+.spread-display {
+  text-align: center;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.spread-display p {
+  margin: 4px 0;
+}
+
+.spread-display p:first-child {
   font-size: 24px;
   font-weight: bold;
-  color: var(--bid-color);
+  color: var(--text-primary);
+}
+
+.spread-display p:last-child {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.metrics-display {
+  display: flex;
+  gap: 24px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.metrics-display p {
+  margin: 0;
 }
 
 .hint {

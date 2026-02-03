@@ -1,8 +1,47 @@
 // Zustand store - Phase 3
+import { create } from 'zustand';
 import type { OrderbookStore } from '@/types';
+import { DEFAULT_METRICS } from '@/types';
 
-// Stub export for type checking
-export type { OrderbookStore };
+export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
+  // Initial state
+  liveOrderbook: null,
+  frozenOrderbook: null,
+  isFrozen: false,
+  connectionStatus: 'disconnected',
+  error: null,
+  metrics: DEFAULT_METRICS,
 
-// Store will be implemented in Phase 3
-export const useOrderbookStore = null as unknown as () => OrderbookStore;
+  // Actions
+  updateLiveOrderbook: (slice) => {
+    set({ liveOrderbook: slice });
+  },
+
+  freeze: () => {
+    const { liveOrderbook } = get();
+    set({
+      isFrozen: true,
+      frozenOrderbook: liveOrderbook,
+    });
+  },
+
+  unfreeze: () => {
+    set({
+      isFrozen: false,
+      frozenOrderbook: null,
+    });
+  },
+
+  setConnectionStatus: (status, error) => {
+    set({
+      connectionStatus: status,
+      error: error ?? null,
+    });
+  },
+
+  updateMetrics: (partial) => {
+    set((state) => ({
+      metrics: { ...state.metrics, ...partial },
+    }));
+  },
+}));

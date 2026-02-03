@@ -1,5 +1,15 @@
 // Hook exports
 export { useWorker } from './useWorker.ts';
 export { useRAFBridge } from './useRAFBridge.ts';
-export { useOrderbookBids, useOrderbookAsks, useSpread, useDisplayedOrderbook } from './useOrderbook.ts';
-export { useMetrics } from './useMetrics.ts';
+export {
+  useOrderbookBids,
+  useOrderbookAsks,
+  useSpread,
+  useDisplayedOrderbook,
+  useConnectionStatus,
+  useError,
+  useFrozenState,
+  useFreezeActions,
+  useMetrics,
+  useMaxCumulative,
+} from './useOrderbook.ts';
