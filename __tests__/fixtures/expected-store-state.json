@@ -1,0 +1,37 @@
+{
+  "liveOrderbook": {
+    "bids": [
+      { "price": 97500.00, "size": 1.50, "cumulative": 1.50, "depthPercent": 6.19 }
+    ],
+    "asks": [
+      { "price": 97500.50, "size": 1.20, "cumulative": 1.20, "depthPercent": 4.95 }
+    ],
+    "spread": 0.50,
+    "spreadPercent": 0.000513,
+    "midpoint": 97500.25,
+    "timestamp": 1699900000000,
+    "lastUpdateId": 1027024
+  },
+  "frozenOrderbook": null,
+  "isFrozen": false,
+  "connectionStatus": "connected",
+  "error": null,
+  "metrics": {
+    "messagesPerSecond": 10,
+    "latencyMs": {
+      "current": 2.5,
+      "avg": 3.2,
+      "min": 1.1,
+      "max": 8.5,
+      "p95": 6.2
+    },
+    "fps": 60,
+    "droppedFrames": 0,
+    "rowsRerenderedLastUpdate": 3,
+    "heapUsedMB": 12.4,
+    "heapGrowthMB": 0.2,
+    "reconnectCount": 0,
+    "sequenceGaps": 0,
+    "tabCount": 1
+  }
+}

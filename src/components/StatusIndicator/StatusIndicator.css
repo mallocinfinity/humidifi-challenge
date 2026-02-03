@@ -1,0 +1,6 @@
+/* StatusIndicator styles - Phase 4 */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -1,0 +1,41 @@
+{
+  "bids": [
+    { "price": 97500.00, "size": 1.50, "cumulative": 1.50, "depthPercent": 6.19 },
+    { "price": 97499.50, "size": 0.75, "cumulative": 2.25, "depthPercent": 9.28 },
+    { "price": 97499.00, "size": 2.10, "cumulative": 4.35, "depthPercent": 17.94 },
+    { "price": 97498.50, "size": 0.30, "cumulative": 4.65, "depthPercent": 19.18 },
+    { "price": 97498.00, "size": 1.80, "cumulative": 6.45, "depthPercent": 26.60 },
+    { "price": 97497.50, "size": 0.45, "cumulative": 6.90, "depthPercent": 28.45 },
+    { "price": 97497.00, "size": 3.20, "cumulative": 10.10, "depthPercent": 41.65 },
+    { "price": 97496.50, "size": 0.90, "cumulative": 11.00, "depthPercent": 45.36 },
+    { "price": 97496.00, "size": 1.15, "cumulative": 12.15, "depthPercent": 50.10 },
+    { "price": 97495.50, "size": 2.50, "cumulative": 14.65, "depthPercent": 60.41 },
+    { "price": 97495.00, "size": 0.60, "cumulative": 15.25, "depthPercent": 62.89 },
+    { "price": 97494.50, "size": 1.95, "cumulative": 17.20, "depthPercent": 70.93 },
+    { "price": 97494.00, "size": 0.85, "cumulative": 18.05, "depthPercent": 74.44 },
+    { "price": 97493.50, "size": 2.75, "cumulative": 20.80, "depthPercent": 85.78 },
+    { "price": 97493.00, "size": 1.40, "cumulative": 22.20, "depthPercent": 91.55 }
+  ],
+  "asks": [
+    { "price": 97500.50, "size": 1.20, "cumulative": 1.20, "depthPercent": 4.95 },
+    { "price": 97501.00, "size": 0.95, "cumulative": 2.15, "depthPercent": 8.87 },
+    { "price": 97501.50, "size": 2.40, "cumulative": 4.55, "depthPercent": 18.76 },
+    { "price": 97502.00, "size": 0.50, "cumulative": 5.05, "depthPercent": 20.83 },
+    { "price": 97502.50, "size": 1.65, "cumulative": 6.70, "depthPercent": 27.63 },
+    { "price": 97503.00, "size": 0.80, "cumulative": 7.50, "depthPercent": 30.93 },
+    { "price": 97503.50, "size": 2.90, "cumulative": 10.40, "depthPercent": 42.89 },
+    { "price": 97504.00, "size": 1.10, "cumulative": 11.50, "depthPercent": 47.42 },
+    { "price": 97504.50, "size": 0.35, "cumulative": 11.85, "depthPercent": 48.87 },
+    { "price": 97505.00, "size": 2.25, "cumulative": 14.10, "depthPercent": 58.15 },
+    { "price": 97505.50, "size": 0.65, "cumulative": 14.75, "depthPercent": 60.83 },
+    { "price": 97506.00, "size": 1.75, "cumulative": 16.50, "depthPercent": 68.04 },
+    { "price": 97506.50, "size": 1.00, "cumulative": 17.50, "depthPercent": 72.16 },
+    { "price": 97507.00, "size": 2.60, "cumulative": 20.10, "depthPercent": 82.89 },
+    { "price": 97507.50, "size": 0.40, "cumulative": 20.50, "depthPercent": 84.54 }
+  ],
+  "spread": 0.50,
+  "spreadPercent": 0.000513,
+  "midpoint": 97500.25,
+  "timestamp": 1699900000000,
+  "lastUpdateId": 1027024
+}

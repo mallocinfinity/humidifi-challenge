@@ -1,0 +1,17 @@
+/* OrderBook styles - Phase 4 */
+.orderbook {
+  display: flex;
+  flex-direction: column;
+}
+
+.orderbook-row {
+  display: flex;
+}
+
+.depth-bar {
+  position: absolute;
+}
+
+.spread {
+  text-align: center;
+}

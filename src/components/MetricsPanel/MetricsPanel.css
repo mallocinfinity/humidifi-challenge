@@ -1,0 +1,5 @@
+/* MetricsPanel styles - Phase 6 */
+.metrics-panel {
+  display: flex;
+  flex-direction: column;
+}
