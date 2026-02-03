@@ -15,6 +15,7 @@ type State = {
   connectionStatus: ConnectionStatus;
   error: string | null;
   metrics: Metrics;
+  isLeader: boolean;
   freeze: () => void;
   unfreeze: () => void;
 };
@@ -62,6 +63,8 @@ const selectFreeze = (s: State) => s.freeze;
 const selectUnfreeze = (s: State) => s.unfreeze;
 
 const selectMetrics = (s: State): Metrics => s.metrics;
+
+const selectIsLeader = (s: State): boolean => s.isLeader;
 
 const selectMaxCumulative = (s: State): number => {
   const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
@@ -126,6 +129,10 @@ export function useFreezeActions(): { freeze: () => void; unfreeze: () => void }
 
 export function useMetrics(): Metrics {
   return useOrderbookStore(selectMetrics);
+}
+
+export function useIsLeader(): boolean {
+  return useOrderbookStore(selectIsLeader);
 }
 
 export function useMaxCumulative(): number {

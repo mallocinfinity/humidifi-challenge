@@ -11,6 +11,7 @@ export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
   connectionStatus: 'disconnected',
   error: null,
   metrics: DEFAULT_METRICS,
+  isLeader: false,
 
   // Actions
   updateLiveOrderbook: (slice) => {
@@ -43,5 +44,9 @@ export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
     set((state) => ({
       metrics: { ...state.metrics, ...partial },
     }));
+  },
+
+  setIsLeader: (isLeader) => {
+    set({ isLeader });
   },
 }));

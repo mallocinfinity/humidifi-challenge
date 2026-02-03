@@ -14,6 +14,7 @@ export interface OrderbookStore {
   connectionStatus: ConnectionStatus;
   error: string | null;
   metrics: Metrics;
+  isLeader: boolean;
 
   // Actions
   updateLiveOrderbook: (slice: OrderbookSlice) => void;
@@ -21,4 +22,5 @@ export interface OrderbookStore {
   unfreeze: () => void;
   setConnectionStatus: (status: ConnectionStatus, error?: string) => void;
   updateMetrics: (partial: Partial<Metrics>) => void;
+  setIsLeader: (isLeader: boolean) => void;
 }

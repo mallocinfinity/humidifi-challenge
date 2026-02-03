@@ -2,7 +2,7 @@
 // Displays detailed performance metrics with color-coded indicators
 
 import { useState, useEffect, useCallback } from 'react';
-import { useMetrics } from '@/hooks';
+import { useMetrics, useIsLeader } from '@/hooks';
 import './MetricsPanel.css';
 
 // Performance thresholds from SPEC
@@ -29,6 +29,7 @@ function getFpsClass(fps: number): string {
 
 export function MetricsPanel() {
   const metrics = useMetrics();
+  const isLeader = useIsLeader();
   const [collapsed, setCollapsed] = useState(false);
   const [heapMB, setHeapMB] = useState(0);
 
@@ -133,6 +134,16 @@ export function MetricsPanel() {
         {/* Connection */}
         <div className="metrics-section">
           <div className="metrics-section-title">Connection</div>
+          <div className="metrics-row">
+            <span className="metrics-label">Role</span>
+            <span className={`metrics-value ${isLeader ? 'good' : ''}`}>
+              {isLeader ? 'Leader' : 'Follower'}
+            </span>
+          </div>
+          <div className="metrics-row">
+            <span className="metrics-label">Tabs</span>
+            <span className="metrics-value">{metrics.tabCount}</span>
+          </div>
           <div className="metrics-row">
             <span className="metrics-label">Reconnects</span>
             <span className={`metrics-value ${metrics.reconnectCount > 0 ? 'warning' : ''}`}>
