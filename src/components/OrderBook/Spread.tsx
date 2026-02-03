@@ -1,8 +1,29 @@
-import { memo } from 'react';
-import type { SpreadProps } from '@/types';
+// Spread component - Phase 4
+// Displays spread between best bid and best ask
 
-function SpreadComponent(_props: SpreadProps) {
-  return <div className="spread">Spread placeholder</div>;
+import { useSpread } from '@/hooks';
+
+export function Spread() {
+  const spread = useSpread();
+
+  if (!spread) {
+    return (
+      <div className="spread-row">
+        <span className="spread-label">Spread</span>
+        <span className="spread-value">--</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="spread-row">
+      <span className="spread-label">Spread</span>
+      <span className="spread-value">
+        ${spread.spread.toFixed(2)}
+      </span>
+      <span className="spread-percent">
+        ({(spread.spreadPercent * 100).toFixed(4)}%)
+      </span>
+    </div>
+  );
 }
-
-export const Spread = memo(SpreadComponent);

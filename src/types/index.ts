@@ -47,5 +47,4 @@ export type {
   ControlsProps,
   StatusIndicatorProps,
   SpreadProps,
-  DepthBarProps,
 } from './components.ts';

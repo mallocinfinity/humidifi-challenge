@@ -1,90 +1,133 @@
-// Orderbook selector hooks - Phase 3
-// Granular selectors with shallow equality for optimal re-renders
+// Orderbook selector hooks - Phase 4
+// All selectors defined at module level for reference stability
 
-import { useShallow } from 'zustand/react/shallow';
-import type { PriceLevel, OrderbookSlice, ConnectionStatus, Metrics } from '@/types';
+import type { PriceLevel, ConnectionStatus, Metrics, OrderbookSlice } from '@/types';
 import { useOrderbookStore } from '@/store/orderbook';
 
-// Get bids from displayed orderbook (frozen or live)
+// Stable empty array reference (never changes)
+const EMPTY_LEVELS: PriceLevel[] = [];
+
+// Type for store state
+type State = {
+  isFrozen: boolean;
+  frozenOrderbook: OrderbookSlice | null;
+  liveOrderbook: OrderbookSlice | null;
+  connectionStatus: ConnectionStatus;
+  error: string | null;
+  metrics: Metrics;
+  freeze: () => void;
+  unfreeze: () => void;
+};
+
+// All selectors as stable module-level functions
+const selectBids = (s: State): PriceLevel[] => {
+  const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
+  return ob?.bids ?? EMPTY_LEVELS;
+};
+
+const selectAsks = (s: State): PriceLevel[] => {
+  const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
+  return ob?.asks ?? EMPTY_LEVELS;
+};
+
+const selectSpread = (s: State): number => {
+  const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
+  return ob?.spread ?? 0;
+};
+
+const selectSpreadPercent = (s: State): number => {
+  const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
+  return ob?.spreadPercent ?? 0;
+};
+
+const selectMidpoint = (s: State): number => {
+  const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
+  return ob?.midpoint ?? 0;
+};
+
+const selectDisplayedOrderbook = (s: State): OrderbookSlice | null => {
+  return s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
+};
+
+const selectConnectionStatus = (s: State): ConnectionStatus => s.connectionStatus;
+
+const selectError = (s: State): string | null => s.error;
+
+const selectIsFrozen = (s: State): boolean => s.isFrozen;
+
+const selectFrozenAt = (s: State): number | null => s.frozenOrderbook?.timestamp ?? null;
+
+const selectFreeze = (s: State) => s.freeze;
+
+const selectUnfreeze = (s: State) => s.unfreeze;
+
+const selectMetrics = (s: State): Metrics => s.metrics;
+
+const selectMaxCumulative = (s: State): number => {
+  const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
+  if (!ob) return 0;
+  const bidMax = ob.bids[ob.bids.length - 1]?.cumulative ?? 0;
+  const askMax = ob.asks[ob.asks.length - 1]?.cumulative ?? 0;
+  return Math.max(bidMax, askMax);
+};
+
+// Hooks using stable selectors
 export function useOrderbookBids(): PriceLevel[] {
-  return useOrderbookStore((s) => {
-    const orderbook = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
-    return orderbook?.bids ?? [];
-  });
+  return useOrderbookStore(selectBids);
 }
 
-// Get asks from displayed orderbook (frozen or live)
 export function useOrderbookAsks(): PriceLevel[] {
-  return useOrderbookStore((s) => {
-    const orderbook = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
-    return orderbook?.asks ?? [];
-  });
+  return useOrderbookStore(selectAsks);
 }
 
-// Get spread info
+export function useSpreadValue(): number {
+  return useOrderbookStore(selectSpread);
+}
+
+export function useSpreadPercent(): number {
+  return useOrderbookStore(selectSpreadPercent);
+}
+
+export function useMidpoint(): number {
+  return useOrderbookStore(selectMidpoint);
+}
+
 export function useSpread(): { spread: number; spreadPercent: number; midpoint: number } | null {
-  return useOrderbookStore(
-    useShallow((s) => {
-      const orderbook = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
-      if (!orderbook) return null;
-      return {
-        spread: orderbook.spread,
-        spreadPercent: orderbook.spreadPercent,
-        midpoint: orderbook.midpoint,
-      };
-    })
-  );
+  const spread = useSpreadValue();
+  const spreadPercent = useSpreadPercent();
+  const midpoint = useMidpoint();
+  if (midpoint === 0) return null;
+  return { spread, spreadPercent, midpoint };
 }
 
-// Get full displayed orderbook (frozen or live)
 export function useDisplayedOrderbook(): OrderbookSlice | null {
-  return useOrderbookStore((s) => {
-    return s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
-  });
+  return useOrderbookStore(selectDisplayedOrderbook);
 }
 
-// Get connection status
 export function useConnectionStatus(): ConnectionStatus {
-  return useOrderbookStore((s) => s.connectionStatus);
+  return useOrderbookStore(selectConnectionStatus);
 }
 
-// Get error state
 export function useError(): string | null {
-  return useOrderbookStore((s) => s.error);
+  return useOrderbookStore(selectError);
 }
 
-// Get frozen state
 export function useFrozenState(): { isFrozen: boolean; frozenAt: number | null } {
-  return useOrderbookStore(
-    useShallow((s) => ({
-      isFrozen: s.isFrozen,
-      frozenAt: s.frozenOrderbook?.timestamp ?? null,
-    }))
-  );
+  const isFrozen = useOrderbookStore(selectIsFrozen);
+  const frozenAt = useOrderbookStore(selectFrozenAt);
+  return { isFrozen, frozenAt };
 }
 
-// Get freeze/unfreeze actions
 export function useFreezeActions(): { freeze: () => void; unfreeze: () => void } {
-  return useOrderbookStore(
-    useShallow((s) => ({
-      freeze: s.freeze,
-      unfreeze: s.unfreeze,
-    }))
-  );
+  const freeze = useOrderbookStore(selectFreeze);
+  const unfreeze = useOrderbookStore(selectUnfreeze);
+  return { freeze, unfreeze };
 }
 
-// Get metrics
 export function useMetrics(): Metrics {
-  return useOrderbookStore((s) => s.metrics);
+  return useOrderbookStore(selectMetrics);
 }
 
-// Get max cumulative for depth bar calculations
 export function useMaxCumulative(): number {
-  return useOrderbookStore((s) => {
-    const orderbook = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
-    if (!orderbook) return 0;
-    const bidMax = orderbook.bids[orderbook.bids.length - 1]?.cumulative ?? 0;
-    const askMax = orderbook.asks[orderbook.asks.length - 1]?.cumulative ?? 0;
-    return Math.max(bidMax, askMax);
-  });
+  return useOrderbookStore(selectMaxCumulative);
 }

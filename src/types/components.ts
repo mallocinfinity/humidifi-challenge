@@ -35,9 +35,3 @@ export interface StatusIndicatorProps {
 export interface SpreadProps {
   // No props - reads from store via hooks
 }
-
-/** Props for DepthBar component */
-export interface DepthBarProps {
-  percent: number;            // 0-100
-  side: 'bid' | 'ask';
-}

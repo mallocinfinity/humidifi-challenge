@@ -1,17 +1,158 @@
 /* OrderBook styles - Phase 4 */
+
 .orderbook {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 600px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.orderbook-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 80px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.orderbook-header span:nth-child(2),
+.orderbook-header span:nth-child(3),
+.orderbook-header span:nth-child(4) {
+  text-align: right;
+}
+
+/* Asks section (top) - reversed so best ask is at bottom near spread */
+.orderbook-asks {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+/* Bids section (bottom) - best bid at top near spread */
+.orderbook-bids {
   display: flex;
   flex-direction: column;
 }
 
+/* Individual row */
 .orderbook-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 80px;
+  padding: 4px 16px;
+  position: relative;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
 }
 
-.depth-bar {
+.orderbook-row:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Depth bar background using CSS custom property */
+.orderbook-row::before {
+  content: '';
   position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: calc(var(--depth-width, 0) * 1%);
+  transform: translateZ(0); /* GPU composite layer */
+  pointer-events: none;
+  transition: width 0.1s ease-out;
 }
 
-.spread {
-  text-align: center;
+/* Bid depth bar */
+.orderbook-row.row-bid::before {
+  background: var(--bid-bg);
+}
+
+/* Ask depth bar */
+.orderbook-row.row-ask::before {
+  background: var(--ask-bg);
+}
+
+/* Price column */
+.orderbook-row .col-price {
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+}
+
+.orderbook-row.row-bid .col-price {
+  color: var(--bid-color);
+}
+
+.orderbook-row.row-ask .col-price {
+  color: var(--ask-color);
+}
+
+/* Size and cumulative columns */
+.orderbook-row .col-size,
+.orderbook-row .col-cumulative,
+.orderbook-row .col-depth {
+  text-align: right;
+  color: var(--text-primary);
+  position: relative;
+  z-index: 1;
+}
+
+.orderbook-row .col-depth {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* Spread indicator between asks and bids */
+.spread-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.spread-row .spread-label {
+  color: var(--text-secondary);
+}
+
+.spread-row .spread-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.spread-row .spread-percent {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Flash animation for price updates - Phase 5 */
+@keyframes flash-bid {
+  0% { background-color: rgba(0, 200, 83, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-ask {
+  0% { background-color: rgba(255, 23, 68, 0.3); }
+  100% { background-color: transparent; }
+}
+
+.orderbook-row.flash-bid {
+  animation: flash-bid 0.3s ease-out;
+}
+
+.orderbook-row.flash-ask {
+  animation: flash-ask 0.3s ease-out;
 }
