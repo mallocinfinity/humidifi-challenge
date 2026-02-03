@@ -1,4 +1,4 @@
-// Performance utilities - Phase 6
+// Performance utilities
 
 /** Calculate P95 from an array of values */
 export function calculateP95(values: number[]): number {
@@ -8,7 +8,7 @@ export function calculateP95(values: number[]): number {
   return sorted[Math.min(index, sorted.length - 1)];
 }
 
-/** Rolling average calculator */
+/** Rolling average calculator with bounded storage */
 export class RollingAverage {
   private _values: number[] = [];
   private _maxSize: number;
@@ -43,20 +43,16 @@ export class RollingAverage {
     return calculateP95(this._values);
   }
 
-  get values(): number[] {
-    return [...this._values];
+  /** Get last value without copying the array */
+  get last(): number {
+    return this._values[this._values.length - 1] ?? 0;
+  }
+
+  get length(): number {
+    return this._values.length;
   }
 
   clear(): void {
     this._values = [];
   }
-}
-
-/** Get heap memory usage (Chrome only) */
-export function getHeapUsedMB(): number {
-  const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
-  if (memory) {
-    return memory.usedJSHeapSize / (1024 * 1024);
-  }
-  return 0;
 }

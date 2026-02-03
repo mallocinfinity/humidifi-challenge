@@ -38,8 +38,13 @@ export function useRAFBridge(): UseRAFBridgeReturn {
   useEffect(() => {
     let isRunning = true;
 
-    const tick = (now: number) => {
+    // Ignore RAF callback's `now` parameter — it's the frame start timestamp,
+    // not the current time. Using it causes negative latency when a message
+    // arrives between frame start and callback execution.
+    const tick = () => {
       if (!isRunning) return;
+
+      const now = performance.now();
 
       // Track frame timing
       const frameDelta = now - lastFrameTimeRef.current;
@@ -50,7 +55,6 @@ export function useRAFBridge(): UseRAFBridgeReturn {
 
       // If we have new data, push to store
       if (stateRef.current.dirty && stateRef.current.latestData) {
-        // Latency = time from message receipt to RAF processing (same time origin)
         const latency = now - stateRef.current.receiveTime;
         latencyTracker.current.add(latency);
 
@@ -64,7 +68,7 @@ export function useRAFBridge(): UseRAFBridgeReturn {
         updateMetrics({
           messagesPerSecond: messageCountRef.current,
           latencyMs: {
-            current: tracker.values[tracker.values.length - 1] ?? 0,
+            current: tracker.last,
             avg: Math.round(tracker.average * 100) / 100,
             min: Math.round(tracker.min * 100) / 100,
             max: Math.round(tracker.max * 100) / 100,
@@ -97,7 +101,7 @@ export function useRAFBridge(): UseRAFBridgeReturn {
         case 'ORDERBOOK_UPDATE':
           messageCountRef.current++;
           stateRef.current.latestData = message.data;
-          stateRef.current.receiveTime = performance.now();  // Main thread time
+          stateRef.current.receiveTime = performance.now();
           stateRef.current.dirty = true;
           break;
 

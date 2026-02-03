@@ -1,5 +1,130 @@
 /* MetricsPanel styles - Phase 6 */
+
 .metrics-panel {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  z-index: 1000;
+  min-width: 280px;
+}
+
+.metrics-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.metrics-panel-header:hover {
+  background: var(--bg-secondary);
+}
+
+.metrics-panel-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.metrics-panel-toggle {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.metrics-panel-content {
+  padding: 12px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.metrics-panel.collapsed .metrics-panel-content {
+  display: none;
+}
+
+.metrics-panel.collapsed .metrics-panel-header {
+  border-radius: 8px;
+  border-bottom: none;
+}
+
+.metrics-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metrics-section-title {
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.metrics-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metrics-label {
+  color: var(--text-secondary);
+}
+
+.metrics-value {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Color coding for performance indicators */
+.metrics-value.good {
+  color: var(--bid-color);
+}
+
+.metrics-value.warning {
+  color: #ffc107;
+}
+
+.metrics-value.bad {
+  color: var(--ask-color);
+}
+
+/* Latency breakdown grid */
+.latency-breakdown {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  text-align: center;
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+.latency-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.latency-stat-label {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.latency-stat-value {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }

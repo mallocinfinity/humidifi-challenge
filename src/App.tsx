@@ -1,14 +1,14 @@
 import './App.css';
-import { useWorker, useConnectionStatus, useMetrics } from '@/hooks';
+import { useWorker, useConnectionStatus } from '@/hooks';
 import { OrderBook } from '@/components/OrderBook';
+import { MetricsPanel } from '@/components/MetricsPanel';
 
 function App() {
   // Initialize worker connection
   useWorker();
 
-  // Get state from store
+  // Get connection status
   const status = useConnectionStatus();
-  const metrics = useMetrics();
 
   return (
     <div className="app">
@@ -22,13 +22,7 @@ function App() {
 
       <OrderBook />
 
-      <footer className="app-footer">
-        <div className="metrics-display">
-          <p>Messages/sec: {metrics.messagesPerSecond}</p>
-          <p>Latency: {metrics.latencyMs.avg.toFixed(1)}ms avg</p>
-          <p>FPS: {metrics.fps}</p>
-        </div>
-      </footer>
+      <MetricsPanel />
     </div>
   );
 }

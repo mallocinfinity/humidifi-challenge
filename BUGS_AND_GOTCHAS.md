@@ -99,6 +99,63 @@ if (prev.maxCumulative > 0 && next.maxCumulative > 0) {
 
 ---
 
+## Phase 6
+
+### 5. RAF `now` Parameter Causes Negative Latency
+**Symptom:** MIN latency showing -0.4ms to -6.5ms (impossible negative values)
+
+**Cause:** `requestAnimationFrame(tick)` passes a `DOMHighResTimeStamp` to the callback — this is the **frame start** timestamp, computed before any callbacks execute. But `receiveTime` is set via `performance.now()` at actual message handler execution time. If a message arrives between frame start and callback execution: `receiveTime > rafNow`, giving negative latency.
+
+```typescript
+// BAD: RAF now is frame start time, not current time
+const tick = (now: number) => {
+  const latency = now - stateRef.current.receiveTime; // Can be negative!
+};
+
+// ALSO BAD: mixing — performance.now() for latency but RAF now for everything else
+const tick = (now: number) => {
+  const frameDelta = now - lastFrameTimeRef.current; // RAF clock
+  const latency = performance.now() - stateRef.current.receiveTime; // perf clock
+  if (now - lastMetricsUpdateRef.current >= 1000) { ... } // RAF clock again
+};
+```
+
+**Fix:** Ignore RAF `now` entirely. Call `performance.now()` once at tick start:
+```typescript
+// GOOD: single consistent clock for everything
+const tick = () => {
+  const now = performance.now();
+  const frameDelta = now - lastFrameTimeRef.current;
+  const latency = now - stateRef.current.receiveTime; // Always positive
+};
+```
+
+**Lesson:** The RAF callback `now` parameter and `performance.now()` are not interchangeable. RAF `now` is a snapshot from before callbacks run. When comparing timestamps across event boundaries (message handlers vs RAF callbacks), always use the same clock measured at actual execution time.
+
+---
+
+### 6. `RollingAverage.values` Getter Allocates on Every Call
+**Symptom:** GC pressure contributing to frame drops
+
+**Cause:** The `values` getter returned `[...this._values]` (a full array copy). Called every second for metrics, but also any time you accessed `tracker.values[tracker.values.length - 1]` to get the last value — copying 100 elements just to read one.
+
+```typescript
+// BAD: copies entire array to read last element
+current: tracker.values[tracker.values.length - 1] ?? 0
+```
+
+**Fix:** Added `last` getter that reads directly without copying:
+```typescript
+// GOOD: no allocation
+get last(): number {
+  return this._values[this._values.length - 1] ?? 0;
+}
+```
+
+**Lesson:** Getters that copy data structures should be avoided in hot paths. Provide targeted accessors for common operations.
+
+---
+
 ## Common Patterns to Watch For
 
 | Pattern | Risk | Mitigation |
@@ -109,6 +166,8 @@ if (prev.maxCumulative > 0 && next.maxCumulative > 0) {
 | Cross-context timestamps | Wrong time origin | Measure in same context |
 | Inline arrow in JSX | Breaks memoization | Extract to named function |
 | Inline style object | Breaks memoization | Use CSS classes or useMemo |
+| RAF `now` vs `performance.now()` | Negative time deltas | Use `performance.now()` inside callback |
+| Getter that copies array | GC pressure in hot paths | Add targeted accessors (`.last`, `.length`) |
 
 ---
 
