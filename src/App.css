@@ -1,11 +1,59 @@
-/* App styles - will be expanded in Phase 4 */
+/* App styles */
 .app {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  gap: 16px;
+}
+
+.status-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+
+.status-dot.status-connected {
+  background: var(--bid-color);
+  box-shadow: 0 0 8px var(--bid-color);
+}
+
+.status-dot.status-connecting,
+.status-dot.status-syncing,
+.status-dot.status-reconnecting {
+  background: #ffc107;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.status-dot.status-error,
+.status-dot.status-disconnected {
+  background: var(--ask-color);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.message-count {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--bid-color);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
