@@ -1,5 +1,44 @@
 /* Controls styles - Phase 7 */
+
 .controls {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+}
+
+.freeze-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.freeze-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+.freeze-btn.frozen {
+  border-color: #ffc107;
+  color: #ffc107;
+}
+
+.freeze-btn.frozen:hover {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.frozen-badge {
+  font-size: 11px;
+  color: #ffc107;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }

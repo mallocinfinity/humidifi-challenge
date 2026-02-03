@@ -1,6 +1,7 @@
 import './App.css';
 import { useWorker, useConnectionStatus } from '@/hooks';
 import { OrderBook } from '@/components/OrderBook';
+import { Controls } from '@/components/Controls';
 import { MetricsPanel } from '@/components/MetricsPanel';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <div className="status-display">
           <span className={`status-dot status-${status}`} />
           <span>{status}</span>
+          <Controls />
         </div>
       </header>
 
