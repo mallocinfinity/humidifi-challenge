@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Project docs (local only)
+BUGS_AND_GOTCHAS.md
+PHASE_PROMPTS.md
+SPEC.md
+.playwright-mcp/

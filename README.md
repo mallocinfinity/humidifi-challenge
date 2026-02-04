@@ -121,6 +121,14 @@ src/
 └── types/            # TypeScript types + Binance API type guards
 ```
 
+## Future Improvements
+
+- Virtualized list for 100+ levels
+- WebSocket compression
+- E2E tests with Playwright
+- Configurable depth levels via UI
+- Service Worker for offline caching
+
 ## Tech Stack
 
 React 19 · TypeScript 5.9 · Vite 7 · Zustand 5 · Web Workers · SharedArrayBuffer · Atomics
