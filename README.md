@@ -142,6 +142,14 @@ The MetricsPanel displays:
 - E2E tests with Playwright
 - Configurable depth levels via UI
 - Better tab tracking
+  
+### Display Refresh Rate
+
+Performance metrics are optimized for 60Hz displays. On high refresh rate displays (120Hz+), reported latency may appear slightly higher due to:
+- RAF callbacks firing 2x as often, increasing measurement overhead
+- More frames to render per second with the same data rate (10 updates/sec)
+
+The actual data processing performance is identical, only the measurement frequency changes. For consistent benchmarking, test on a 60Hz display or throttle via Chrome DevTools.
 
 ## Tech Stack
 
