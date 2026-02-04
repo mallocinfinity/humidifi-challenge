@@ -24,6 +24,7 @@ export class LeaderElection {
   private checkInterval: ReturnType<typeof setInterval> | null = null;
   private boundOnStorage: (e: StorageEvent) => void;
   private boundOnUnload: () => void;
+  private stopped: boolean = false;
 
   constructor(callbacks: LeaderElectionCallbacks) {
     this.id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -33,6 +34,8 @@ export class LeaderElection {
   }
 
   start(): void {
+    this.stopped = false;
+
     // Listen for storage changes from other tabs
     window.addEventListener('storage', this.boundOnStorage);
     window.addEventListener('beforeunload', this.boundOnUnload);
@@ -47,6 +50,8 @@ export class LeaderElection {
   }
 
   stop(): void {
+    this.stopped = true;
+
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
@@ -79,6 +84,8 @@ export class LeaderElection {
   }
 
   private tryClaimLeadership(): void {
+    if (this.stopped) return;
+
     const record = this.readRecord();
 
     if (record && record.tabId === this.id) {
@@ -90,7 +97,7 @@ export class LeaderElection {
     if (record && Date.now() - record.timestamp < STALE_THRESHOLD) {
       // Another tab is a live leader
       if (this.leader) {
-        // We lost leadership (shouldn't happen, but handle it)
+        // We lost leadership
         this.leader = false;
         this.stopHeartbeat();
         this.callbacks.onBecomeFollower();
@@ -103,6 +110,8 @@ export class LeaderElection {
   }
 
   private claimLeadership(): void {
+    if (this.stopped) return;
+
     this.writeHeartbeat();
 
     // Verify we actually got it (another tab may have claimed simultaneously)
@@ -110,6 +119,9 @@ export class LeaderElection {
     if (record && record.tabId === this.id) {
       if (!this.leader) {
         this.leader = true;
+        // Start heartbeat BEFORE calling onBecomeLeader — the callback may
+        // trigger React state updates that cause effect re-runs. The heartbeat
+        // must already be running so the key stays alive.
         this.startHeartbeat();
         this.callbacks.onBecomeLeader();
       }
@@ -118,8 +130,12 @@ export class LeaderElection {
 
   private startHeartbeat(): void {
     this.stopHeartbeat();
+    // Write immediately — don't wait for first interval tick
+    this.writeHeartbeat();
     this.heartbeatInterval = setInterval(() => {
-      this.writeHeartbeat();
+      if (!this.stopped) {
+        this.writeHeartbeat();
+      }
     }, HEARTBEAT_INTERVAL);
   }
 
@@ -131,11 +147,12 @@ export class LeaderElection {
   }
 
   private writeHeartbeat(): void {
+    if (this.stopped) return;
     const record: LeaderRecord = { tabId: this.id, timestamp: Date.now() };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
-    } catch {
-      // localStorage may be unavailable or full
+    } catch (e) {
+      console.error('[LeaderElection] Failed to write heartbeat:', e);
     }
   }
 
@@ -150,11 +167,10 @@ export class LeaderElection {
   }
 
   private onStorage(e: StorageEvent): void {
-    if (e.key !== STORAGE_KEY) return;
+    if (e.key !== STORAGE_KEY || this.stopped) return;
 
     if (e.newValue === null) {
       // Leader key was removed — another leader tab closed
-      // Try to claim leadership immediately
       this.tryClaimLeadership();
       return;
     }

@@ -90,10 +90,6 @@ function useBroadcastMode(): void {
   // eslint-disable-next-line react-hooks/refs
   handleMessageRef.current = handleWorkerMessage;
 
-  // Pending broadcast state — coalesces to one broadcast per RAF frame
-  const pendingBroadcastRef = useRef<WorkerToMainMessage | null>(null);
-  const broadcastRafRef = useRef<number | null>(null);
-
   const createWorker = useCallback(() => {
     const worker = new Worker(
       new URL('../worker/orderbook.worker.ts', import.meta.url),
@@ -102,25 +98,12 @@ function useBroadcastMode(): void {
 
     worker.onmessage = (event: MessageEvent<WorkerToMainMessage>) => {
       const msg = event.data;
-      // Feed to RAF bridge
+      // Feed to RAF bridge (own tab rendering)
       handleMessageRef.current(msg);
-      // Coalesce broadcasts: store latest, send once per frame
-      if (msg.type === 'ORDERBOOK_UPDATE') {
-        pendingBroadcastRef.current = msg;
-        if (broadcastRafRef.current === null) {
-          broadcastRafRef.current = requestAnimationFrame(() => {
-            broadcastRafRef.current = null;
-            const pending = pendingBroadcastRef.current;
-            if (pending) {
-              channelRef.current?.broadcast(pending);
-              pendingBroadcastRef.current = null;
-            }
-          });
-        }
-      } else {
-        // Non-data messages (STATUS_CHANGE) are rare — broadcast immediately
-        channelRef.current?.broadcast(msg);
-      }
+      // Broadcast to follower tabs immediately — no RAF coalescing.
+      // RAF is paused for background tabs, which would stop broadcasts
+      // when the leader tab isn't focused.
+      channelRef.current?.broadcast(msg);
     };
 
     worker.onerror = (error) => {
@@ -133,11 +116,6 @@ function useBroadcastMode(): void {
   }, [setConnectionStatus]);
 
   const destroyWorker = useCallback(() => {
-    if (broadcastRafRef.current !== null) {
-      cancelAnimationFrame(broadcastRafRef.current);
-      broadcastRafRef.current = null;
-    }
-    pendingBroadcastRef.current = null;
     if (workerRef.current) {
       workerRef.current.postMessage({ type: 'DISCONNECT' });
       workerRef.current.terminate();
