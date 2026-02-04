@@ -2,6 +2,7 @@
 // All selectors defined at module level for reference stability
 
 import type { PriceLevel, ConnectionStatus, Metrics, OrderbookSlice } from '@/types';
+import type { SyncMode } from '@/lib/sync-mode.ts';
 import { useOrderbookStore } from '@/store/orderbook';
 
 // Stable empty array reference (never changes)
@@ -16,6 +17,7 @@ type State = {
   error: string | null;
   metrics: Metrics;
   isLeader: boolean;
+  syncMode: SyncMode;
   freeze: () => void;
   unfreeze: () => void;
 };
@@ -65,6 +67,8 @@ const selectUnfreeze = (s: State) => s.unfreeze;
 const selectMetrics = (s: State): Metrics => s.metrics;
 
 const selectIsLeader = (s: State): boolean => s.isLeader;
+
+const selectSyncMode = (s: State): SyncMode => s.syncMode;
 
 const selectMaxCumulative = (s: State): number => {
   const ob = s.isFrozen ? s.frozenOrderbook : s.liveOrderbook;
@@ -133,6 +137,10 @@ export function useMetrics(): Metrics {
 
 export function useIsLeader(): boolean {
   return useOrderbookStore(selectIsLeader);
+}
+
+export function useSyncMode(): SyncMode {
+  return useOrderbookStore(selectSyncMode);
 }
 
 export function useMaxCumulative(): number {

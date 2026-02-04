@@ -12,6 +12,7 @@ export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
   error: null,
   metrics: DEFAULT_METRICS,
   isLeader: false,
+  syncMode: 'broadcast',
 
   // Actions
   updateLiveOrderbook: (slice) => {
@@ -48,5 +49,9 @@ export const useOrderbookStore = create<OrderbookStore>((set, get) => ({
 
   setIsLeader: (isLeader) => {
     set({ isLeader });
+  },
+
+  setSyncMode: (mode) => {
+    set({ syncMode: mode });
   },
 }));

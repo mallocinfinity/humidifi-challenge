@@ -1,9 +1,10 @@
-// Worker lifecycle hook - Phase 8
-// Leader tab owns Worker/WebSocket and broadcasts to followers via BroadcastChannel.
-// Follower tabs receive data from the channel — no Worker needed.
+// Worker lifecycle hook - Phase 9
+// SharedWorker (default): all tabs connect to one worker, no leader election.
+// BroadcastChannel (fallback): leader tab owns Worker/WebSocket, broadcasts to followers.
 
 import { useEffect, useRef, useCallback } from 'react';
 import type { WorkerToMainMessage } from '@/types';
+import { detectSyncMode } from '@/lib/sync-mode';
 import { useRAFBridge } from './useRAFBridge';
 import { useOrderbookStore } from '@/store/orderbook';
 import { LeaderElection } from '@/lib/leader-election';
@@ -12,7 +13,62 @@ import { OrderbookBroadcast } from '@/lib/broadcast-channel';
 const PING_INTERVAL = 2000;       // Followers ping every 2s
 const PING_STALE_THRESHOLD = 5000; // Prune tabs not seen in 5s
 
-export function useWorker(): void {
+// ─── SharedWorker path ────────────────────────────────────────────────────────
+
+function useSharedWorkerMode(): void {
+  const sharedWorkerRef = useRef<SharedWorker | null>(null);
+  const { handleWorkerMessage } = useRAFBridge();
+  const setConnectionStatus = useOrderbookStore((s) => s.setConnectionStatus);
+  const updateMetrics = useOrderbookStore((s) => s.updateMetrics);
+  const setIsLeader = useOrderbookStore((s) => s.setIsLeader);
+  const setSyncMode = useOrderbookStore((s) => s.setSyncMode);
+
+  const handleMessageRef = useRef(handleWorkerMessage);
+  handleMessageRef.current = handleWorkerMessage;
+
+  useEffect(() => {
+    setSyncMode('shared');
+    // All tabs are peers in SharedWorker mode
+    setIsLeader(true);
+
+    const worker = new SharedWorker(
+      new URL('../worker/orderbook.shared-worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+    sharedWorkerRef.current = worker;
+
+    worker.port.onmessage = (event: MessageEvent<WorkerToMainMessage>) => {
+      const msg = event.data;
+
+      // Tab count arrives via METRICS messages from the worker
+      if (msg.type === 'METRICS' && msg.data.tabCount !== undefined) {
+        updateMetrics({ tabCount: msg.data.tabCount });
+        return;
+      }
+
+      handleMessageRef.current(msg);
+    };
+
+    worker.onerror = (error) => {
+      console.error('[SharedWorker] Error:', error);
+      setConnectionStatus('error', 'SharedWorker error');
+    };
+
+    // Connect to the shared WebSocket
+    worker.port.postMessage({ type: 'CONNECT', symbol: 'BTCUSD' });
+    worker.port.start();
+
+    return () => {
+      worker.port.postMessage({ type: 'DISCONNECT' });
+      worker.port.close();
+      sharedWorkerRef.current = null;
+    };
+  }, [setConnectionStatus, updateMetrics, setIsLeader, setSyncMode]);
+}
+
+// ─── BroadcastChannel path ────────────────────────────────────────────────────
+
+function useBroadcastMode(): void {
   const workerRef = useRef<Worker | null>(null);
   const electionRef = useRef<LeaderElection | null>(null);
   const channelRef = useRef<OrderbookBroadcast | null>(null);
@@ -20,8 +76,8 @@ export function useWorker(): void {
   const setConnectionStatus = useOrderbookStore((s) => s.setConnectionStatus);
   const updateMetrics = useOrderbookStore((s) => s.updateMetrics);
   const setIsLeader = useOrderbookStore((s) => s.setIsLeader);
+  const setSyncMode = useOrderbookStore((s) => s.setSyncMode);
 
-  // Stable ref for handleWorkerMessage so callbacks don't go stale
   const handleMessageRef = useRef(handleWorkerMessage);
   handleMessageRef.current = handleWorkerMessage;
 
@@ -81,6 +137,8 @@ export function useWorker(): void {
   }, []);
 
   useEffect(() => {
+    setSyncMode('broadcast');
+
     // Create broadcast channel
     const channel = new OrderbookBroadcast();
     channelRef.current = channel;
@@ -101,7 +159,6 @@ export function useWorker(): void {
     });
 
     // --- Tab count: leader tracks follower pings ---
-    // Map of tabId → last ping timestamp
     const followerPings = new Map<string, number>();
     let tabCountInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -110,7 +167,6 @@ export function useWorker(): void {
     });
 
     const startTabCountTracking = () => {
-      // Prune stale followers and broadcast count every PING_INTERVAL
       tabCountInterval = setInterval(() => {
         const now = Date.now();
         for (const [id, ts] of followerPings) {
@@ -118,7 +174,7 @@ export function useWorker(): void {
             followerPings.delete(id);
           }
         }
-        const count = 1 + followerPings.size; // leader + active followers
+        const count = 1 + followerPings.size;
         updateMetrics({ tabCount: count });
         channel.broadcastTabCount(count);
       }, PING_INTERVAL);
@@ -137,7 +193,7 @@ export function useWorker(): void {
     const tabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     const startPinging = () => {
-      channel.sendPing(tabId); // Immediate first ping
+      channel.sendPing(tabId);
       pingInterval = setInterval(() => {
         channel.sendPing(tabId);
       }, PING_INTERVAL);
@@ -171,10 +227,8 @@ export function useWorker(): void {
     });
     electionRef.current = election;
 
-    // Start election
     election.start();
 
-    // If we're a follower from the start, begin pinging and set connecting status
     if (!election.isLeader) {
       setConnectionStatus('connecting');
       startPinging();
@@ -189,5 +243,17 @@ export function useWorker(): void {
       electionRef.current = null;
       channelRef.current = null;
     };
-  }, [createWorker, destroyWorker, setConnectionStatus, updateMetrics, setIsLeader]);
+  }, [createWorker, destroyWorker, setConnectionStatus, updateMetrics, setIsLeader, setSyncMode]);
+}
+
+// ─── Entry point ──────────────────────────────────────────────────────────────
+
+const syncMode = detectSyncMode();
+
+export function useWorker(): void {
+  if (syncMode === 'shared') {
+    useSharedWorkerMode();
+  } else {
+    useBroadcastMode();
+  }
 }

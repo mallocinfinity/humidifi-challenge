@@ -12,5 +12,6 @@ export {
   useFreezeActions,
   useMetrics,
   useIsLeader,
+  useSyncMode,
   useMaxCumulative,
 } from './useOrderbook.ts';

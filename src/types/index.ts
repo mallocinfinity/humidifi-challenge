@@ -39,6 +39,10 @@ export {
 // Store types
 export type { OrderbookStore } from './store.ts';
 
+// Sync mode
+export type { SyncMode } from '@/lib/sync-mode.ts';
+export { detectSyncMode } from '@/lib/sync-mode.ts';
+
 // Component props types
 export type {
   OrderBookRowProps,
