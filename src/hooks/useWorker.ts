@@ -9,6 +9,9 @@ import { useOrderbookStore } from '@/store/orderbook';
 import { LeaderElection } from '@/lib/leader-election';
 import { OrderbookBroadcast } from '@/lib/broadcast-channel';
 
+const PING_INTERVAL = 2000;       // Followers ping every 2s
+const PING_STALE_THRESHOLD = 5000; // Prune tabs not seen in 5s
+
 export function useWorker(): void {
   const workerRef = useRef<Worker | null>(null);
   const electionRef = useRef<LeaderElection | null>(null);
@@ -22,6 +25,10 @@ export function useWorker(): void {
   const handleMessageRef = useRef(handleWorkerMessage);
   handleMessageRef.current = handleWorkerMessage;
 
+  // Pending broadcast state — coalesces to one broadcast per RAF frame
+  const pendingBroadcastRef = useRef<WorkerToMainMessage | null>(null);
+  const broadcastRafRef = useRef<number | null>(null);
+
   const createWorker = useCallback(() => {
     const worker = new Worker(
       new URL('../worker/orderbook.worker.ts', import.meta.url),
@@ -32,8 +39,23 @@ export function useWorker(): void {
       const msg = event.data;
       // Feed to RAF bridge
       handleMessageRef.current(msg);
-      // Broadcast to follower tabs
-      channelRef.current?.broadcast(msg);
+      // Coalesce broadcasts: store latest, send once per frame
+      if (msg.type === 'ORDERBOOK_UPDATE') {
+        pendingBroadcastRef.current = msg;
+        if (broadcastRafRef.current === null) {
+          broadcastRafRef.current = requestAnimationFrame(() => {
+            broadcastRafRef.current = null;
+            const pending = pendingBroadcastRef.current;
+            if (pending) {
+              channelRef.current?.broadcast(pending);
+              pendingBroadcastRef.current = null;
+            }
+          });
+        }
+      } else {
+        // Non-data messages (STATUS_CHANGE) are rare — broadcast immediately
+        channelRef.current?.broadcast(msg);
+      }
     };
 
     worker.onerror = (error) => {
@@ -46,6 +68,11 @@ export function useWorker(): void {
   }, [setConnectionStatus]);
 
   const destroyWorker = useCallback(() => {
+    if (broadcastRafRef.current !== null) {
+      cancelAnimationFrame(broadcastRafRef.current);
+      broadcastRafRef.current = null;
+    }
+    pendingBroadcastRef.current = null;
     if (workerRef.current) {
       workerRef.current.postMessage({ type: 'DISCONNECT' });
       workerRef.current.terminate();
@@ -58,8 +85,7 @@ export function useWorker(): void {
     const channel = new OrderbookBroadcast();
     channelRef.current = channel;
 
-    // Set up follower message listener — active when not leader.
-    // Track whether we've received data yet to flip status from 'connecting'.
+    // --- Follower data listener ---
     let followerReceivedData = false;
     channel.onMessage((msg) => {
       if (!followerReceivedData && msg.type === 'ORDERBOOK_UPDATE') {
@@ -69,19 +95,76 @@ export function useWorker(): void {
       handleMessageRef.current(msg);
     });
 
-    // Create leader election
+    // --- Tab count: follower receives count from leader ---
+    channel.onTabCount((count) => {
+      updateMetrics({ tabCount: count });
+    });
+
+    // --- Tab count: leader tracks follower pings ---
+    // Map of tabId → last ping timestamp
+    const followerPings = new Map<string, number>();
+    let tabCountInterval: ReturnType<typeof setInterval> | null = null;
+
+    channel.onPing((tabId) => {
+      followerPings.set(tabId, Date.now());
+    });
+
+    const startTabCountTracking = () => {
+      // Prune stale followers and broadcast count every PING_INTERVAL
+      tabCountInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [id, ts] of followerPings) {
+          if (now - ts > PING_STALE_THRESHOLD) {
+            followerPings.delete(id);
+          }
+        }
+        const count = 1 + followerPings.size; // leader + active followers
+        updateMetrics({ tabCount: count });
+        channel.broadcastTabCount(count);
+      }, PING_INTERVAL);
+    };
+
+    const stopTabCountTracking = () => {
+      if (tabCountInterval) {
+        clearInterval(tabCountInterval);
+        tabCountInterval = null;
+      }
+      followerPings.clear();
+    };
+
+    // --- Follower ping interval ---
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
+    const tabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const startPinging = () => {
+      channel.sendPing(tabId); // Immediate first ping
+      pingInterval = setInterval(() => {
+        channel.sendPing(tabId);
+      }, PING_INTERVAL);
+    };
+
+    const stopPinging = () => {
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+    };
+
+    // --- Leader election ---
     const election = new LeaderElection({
       onBecomeLeader: () => {
-        console.log('[Tab] Became leader');
         channel.setLeader(true);
         setIsLeader(true);
+        stopPinging();
+        startTabCountTracking();
         updateMetrics({ tabCount: 1 });
         createWorker();
       },
       onBecomeFollower: () => {
-        console.log('[Tab] Became follower');
         channel.setLeader(false);
         setIsLeader(false);
+        stopTabCountTracking();
+        startPinging();
         destroyWorker();
         setConnectionStatus('connected');
       },
@@ -91,15 +174,17 @@ export function useWorker(): void {
     // Start election
     election.start();
 
-    // If we're a follower from the start, set connected status
-    // (data will arrive via BroadcastChannel once leader sends it)
+    // If we're a follower from the start, begin pinging and set connecting status
     if (!election.isLeader) {
       setConnectionStatus('connecting');
+      startPinging();
     }
 
     return () => {
       election.stop();
       destroyWorker();
+      stopPinging();
+      stopTabCountTracking();
       channel.close();
       electionRef.current = null;
       channelRef.current = null;

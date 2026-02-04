@@ -94,7 +94,9 @@ export function useRAFBridge(): UseRAFBridgeReturn {
     };
   }, [updateLiveOrderbook, updateMetrics]);
 
-  // Handle incoming worker messages
+  // Handle incoming worker messages.
+  // Always stamps receiveTime with local performance.now() — never use cross-tab
+  // timestamps since performance.now() origin differs per tab.
   const handleWorkerMessage = useCallback(
     (message: WorkerToMainMessage) => {
       switch (message.type) {
