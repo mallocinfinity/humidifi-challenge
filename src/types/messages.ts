@@ -7,7 +7,7 @@ import type { Metrics } from './metrics.ts';
 
 /** Messages from Main Thread → Worker */
 export type MainToWorkerMessage =
-  | { type: 'CONNECT'; symbol: string }
+  | { type: 'CONNECT'; symbol: string; wsUrl: string; restUrl: string; streamSuffix: string }
   | { type: 'DISCONNECT' }
   | { type: 'SET_DEPTH'; depth: number };  // Change from 15 to N levels
 

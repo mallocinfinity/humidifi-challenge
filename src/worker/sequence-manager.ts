@@ -4,8 +4,6 @@
 import type { BinanceDepthUpdate, BinanceDepthSnapshot } from '@/types';
 import { isBinanceDepthSnapshot } from '@/types';
 
-const BINANCE_REST_URL = 'https://api.binance.us/api/v3/depth';
-
 export type SequenceState =
   | 'buffering'      // Collecting messages before snapshot
   | 'syncing'        // Fetching snapshot
@@ -25,10 +23,12 @@ export class SequenceManager {
   private lastUpdateId: number = 0;
   private callbacks: SequenceManagerCallbacks;
   private symbol: string;
+  private restUrl: string;
   private isFetching = false;
 
-  constructor(symbol: string, callbacks: SequenceManagerCallbacks) {
+  constructor(symbol: string, restUrl: string, callbacks: SequenceManagerCallbacks) {
     this.symbol = symbol.toUpperCase();
+    this.restUrl = restUrl;
     this.callbacks = callbacks;
   }
 
@@ -87,7 +87,7 @@ export class SequenceManager {
     this.setState('syncing');
 
     try {
-      const url = `${BINANCE_REST_URL}?symbol=${this.symbol}&limit=1000`;
+      const url = `${this.restUrl}?symbol=${this.symbol}&limit=1000`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -144,24 +144,31 @@ export class SequenceManager {
     this.callbacks.onSynchronized(snapshot, validUpdates);
   }
 
+  // Futures @depth streams frequently skip 100-500 sequence numbers — normal
+  // for aggregated feeds. Only resync on large gaps (corrupted/stale data).
+  private static readonly GAP_TOLERANCE = 1000;
+
   private validateSequence(update: BinanceDepthUpdate): boolean {
-    // For each event: U should be lastUpdateId + 1
-    // Allow some flexibility for the first event after sync
     if (this.lastUpdateId === 0) {
       return true;
     }
 
-    // U should be <= lastUpdateId + 1 for continuous sequence
-    // The event covers range [U, u], so next event's U should be prev u + 1
     const expectedU = this.lastUpdateId + 1;
 
-    // Allow if U <= expectedU (overlapping is OK, gap is not)
-    if (update.U > expectedU) {
-      console.log(`[SequenceManager] Gap detected: expected U <= ${expectedU}, got ${update.U}`);
-      return false;
+    // Overlapping or contiguous — always fine
+    if (update.U <= expectedU) {
+      return true;
     }
 
-    return true;
+    // Small gap — tolerate it, the orderbook is still usable
+    const gap = update.U - expectedU;
+    if (gap <= SequenceManager.GAP_TOLERANCE) {
+      return true;
+    }
+
+    // Large gap — resync
+    console.log(`[SequenceManager] Large gap detected (${gap}): expected U <= ${expectedU}, got ${update.U}`);
+    return false;
   }
 
   reset(): void {

@@ -72,12 +72,12 @@ function postSlice(): void {
 }
 
 // Start the WebSocket connection (called on first CONNECT)
-function connect(symbol: string): void {
+function connect(symbol: string, wsUrl: string, restUrl: string, streamSuffix: string): void {
   disconnect();
 
   orderbookProcessor = new OrderbookProcessor();
 
-  sequenceManager = new SequenceManager(symbol, {
+  sequenceManager = new SequenceManager(symbol, restUrl, {
     onStateChange: (state) => {
       broadcastToAll({
         type: 'STATUS_CHANGE',
@@ -91,7 +91,7 @@ function connect(symbol: string): void {
     },
   });
 
-  binanceWS = new BinanceWebSocket(symbol, {
+  binanceWS = new BinanceWebSocket(symbol, wsUrl, streamSuffix, {
     onOpen: () => {
       console.log('[SharedWorker] WebSocket connected');
     },
@@ -169,7 +169,7 @@ self.onconnect = (event: MessageEvent) => {
       case 'CONNECT':
         // First tab triggers WebSocket start; subsequent tabs piggyback
         if (!binanceWS) {
-          connect(e.data.symbol);
+          connect(e.data.symbol, e.data.wsUrl, e.data.restUrl, e.data.streamSuffix);
         }
         break;
 

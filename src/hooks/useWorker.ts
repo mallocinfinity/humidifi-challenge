@@ -5,6 +5,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { WorkerToMainMessage } from '@/types';
 import { detectSyncMode } from '@/lib/sync-mode';
+import { detectExchange, EXCHANGES } from '@/lib/exchange-config';
 import { useRAFBridge } from './useRAFBridge';
 import { useOrderbookStore } from '@/store/orderbook';
 import { LeaderElection } from '@/lib/leader-election';
@@ -55,7 +56,7 @@ function useSharedWorkerMode(): void {
     };
 
     // Connect to the shared WebSocket
-    worker.port.postMessage({ type: 'CONNECT', symbol: 'BTCUSD' });
+    worker.port.postMessage({ type: 'CONNECT', ...exchangeConfig });
     worker.port.start();
 
     return () => {
@@ -119,7 +120,7 @@ function useBroadcastMode(): void {
       setConnectionStatus('error', 'Worker error');
     };
 
-    worker.postMessage({ type: 'CONNECT', symbol: 'BTCUSD' });
+    worker.postMessage({ type: 'CONNECT', ...exchangeConfig });
     workerRef.current = worker;
   }, [setConnectionStatus]);
 
@@ -249,6 +250,7 @@ function useBroadcastMode(): void {
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 const syncMode = detectSyncMode();
+const exchangeConfig = EXCHANGES[detectExchange()];
 
 export function useWorker(): void {
   if (syncMode === 'shared') {

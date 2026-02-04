@@ -137,8 +137,8 @@ export function MetricsPanel() {
           <div className="metrics-section-title">Connection</div>
           <div className="metrics-row">
             <span className="metrics-label">Mode</span>
-            <span className={`metrics-value ${syncMode === 'shared' ? 'good' : ''}`}>
-              {syncMode === 'shared' ? 'SharedWorker' : 'Broadcast'}
+            <span className={`metrics-value ${syncMode !== 'broadcast' ? 'good' : ''}`}>
+              {syncMode === 'sab' ? 'SAB' : syncMode === 'shared' ? 'SharedWorker' : 'Broadcast'}
             </span>
           </div>
           {syncMode === 'broadcast' && (

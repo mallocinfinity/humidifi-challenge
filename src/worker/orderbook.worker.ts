@@ -65,7 +65,7 @@ function postSlice(): void {
 }
 
 // Start the connection
-function connect(symbol: string): void {
+function connect(symbol: string, wsUrl: string, restUrl: string, streamSuffix: string): void {
   // Clean up existing connections
   disconnect();
 
@@ -73,7 +73,7 @@ function connect(symbol: string): void {
   orderbookProcessor = new OrderbookProcessor();
 
   // Initialize sequence manager
-  sequenceManager = new SequenceManager(symbol, {
+  sequenceManager = new SequenceManager(symbol, restUrl, {
     onStateChange: (state) => {
       postTypedMessage({
         type: 'STATUS_CHANGE',
@@ -88,7 +88,7 @@ function connect(symbol: string): void {
   });
 
   // Initialize WebSocket
-  binanceWS = new BinanceWebSocket(symbol, {
+  binanceWS = new BinanceWebSocket(symbol, wsUrl, streamSuffix, {
     onOpen: () => {
       console.log('[Worker] WebSocket connected');
     },
@@ -150,7 +150,7 @@ self.onmessage = (event: MessageEvent<MainToWorkerMessage>): void => {
 
   switch (type) {
     case 'CONNECT':
-      connect(event.data.symbol);
+      connect(event.data.symbol, event.data.wsUrl, event.data.restUrl, event.data.streamSuffix);
       break;
 
     case 'DISCONNECT':

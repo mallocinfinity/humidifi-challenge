@@ -2,7 +2,6 @@
 import type { BinanceDepthUpdate } from '@/types';
 import { isBinanceDepthUpdate } from '@/types';
 
-const BINANCE_WS_URL = 'wss://stream.binance.us:9443/ws';
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
 
@@ -18,12 +17,16 @@ export class BinanceWebSocket {
   private ws: WebSocket | null = null;
   private callbacks: BinanceWSCallbacks;
   private symbol: string;
+  private wsUrl: string;
+  private streamSuffix: string;
   private retryCount = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
 
-  constructor(symbol: string, callbacks: BinanceWSCallbacks) {
+  constructor(symbol: string, wsUrl: string, streamSuffix: string, callbacks: BinanceWSCallbacks) {
     this.symbol = symbol.toLowerCase();
+    this.wsUrl = wsUrl;
+    this.streamSuffix = streamSuffix;
     this.callbacks = callbacks;
   }
 
@@ -33,7 +36,8 @@ export class BinanceWebSocket {
     }
 
     this.shouldReconnect = true;
-    const streamUrl = `${BINANCE_WS_URL}/${this.symbol}@depth@100ms`;
+    const streamUrl = `${this.wsUrl}/${this.symbol}${this.streamSuffix}`;
+    console.log('[BinanceWS] Connecting:', streamUrl);
 
     try {
       this.ws = new WebSocket(streamUrl);
