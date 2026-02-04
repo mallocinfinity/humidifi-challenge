@@ -2,9 +2,7 @@
 
 High-performance orderbook visualization with sub-millisecond rendering, multi-tab synchronization, and three sync mode architectures.
 
-
-https://github.com/user-attachments/assets/e88969f0-21b2-4090-8435-e9c56efd73d1
-
+![GID](https://github.com/user-attachments/assets/9c3e01f9-c7a5-4533-abba-6bccd8c76478)
 
 ## Features
 
