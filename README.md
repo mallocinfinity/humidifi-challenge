@@ -1,101 +1,126 @@
-# Humidifi — Real-Time BTC/USD Orderbook
+# Real-Time BTC/USD Orderbook
 
-Real-time orderbook visualization for BTC/USD with three synchronization modes, multi-tab support, and sub-millisecond rendering via SharedArrayBuffer.
+High-performance orderbook visualization with sub-millisecond rendering, multi-tab synchronization, and three sync mode architectures.
 
 ## Features
 
-- Real-time WebSocket connection to Binance (spot & futures)
-- Three sync modes: SharedWorker (default), BroadcastChannel (fallback), SharedArrayBuffer (experimental)
-- Multi-tab support with single WebSocket connection
-- Leader election for BroadcastChannel mode
-- Freeze/resume functionality
-- Performance metrics panel (latency, FPS, memory, dropped frames)
-- Binary protocol for zero-copy SAB mode
-- Sequence management with gap detection and auto-resync
+- **Real-time WebSocket** — Binance US Spot & Futures with sequence-gapped resync
+- **Three sync modes** — SharedWorker (default), BroadcastChannel (fallback), SharedArrayBuffer (experimental zero-copy)
+- **Multi-tab support** — Single WebSocket shared across tabs, leader election for Broadcast mode
+- **Freeze/Resume** — Pause updates without losing data continuity
+- **Performance metrics** — Latency (cur/min/avg/max/p95), FPS, dropped frames, memory, tab count
 
-## Tech Stack
-
-React 19, TypeScript 5.9, Vite 7, Zustand 5, Web Workers
-
-## Getting Started
-
+## Quick Start
 ```bash
 pnpm install
-pnpm dev          # development (localhost:5173)
-pnpm build && pnpm preview   # production (localhost:4173)
+pnpm dev              # localhost:5173
+pnpm build && pnpm preview   # localhost:4173 (production)
 ```
 
 ## URL Parameters
 
-| Param | Values | Description |
-|-------|--------|-------------|
-| `mode` | `shared` (default), `broadcast`, `sab` | Sync mode |
-| `exchange` | `spot` (default), `futures` | Data source |
+| Param | Values | Default | Description |
+|-------|--------|---------|-------------|
+| `mode` | `shared`, `broadcast`, `sab` | `shared` | Sync architecture |
+| `exchange` | `spot`, `futures` | `spot` | Data source |
 
-Parameters compose freely:
-
+**Examples:**
 ```
-localhost:4173                              # SharedWorker + Binance US Spot
-localhost:4173/?mode=sab                    # SharedArrayBuffer mode
-localhost:4173/?exchange=futures             # Binance Futures (~50-100 msg/sec)
-localhost:4173/?mode=sab&exchange=futures    # SAB + Futures (max throughput)
+localhost:4173                          # SharedWorker + Spot
+localhost:4173/?mode=sab                # SharedArrayBuffer mode
+localhost:4173/?exchange=futures        # Binance Futures (higher volume)
+localhost:4173/?mode=sab&exchange=futures
 ```
 
 ## Architecture
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                          Browser Tabs                           │
-├─────────────┬─────────────┬─────────────────────────────────────┤
-│   Tab 1     │   Tab 2     │   Tab N                             │
-│  (Leader)   │ (Follower)  │  (Follower)                         │
-│             │             │                                     │
-│  React UI   │  React UI   │   React UI                          │
-│     ↑       │     ↑       │      ↑                              │
-│  Zustand    │  Zustand    │   Zustand                           │
-│     ↑       │     ↑       │      ↑                              │
-└─────────────┴─────────────┴─────────────────────────────────────┘
-         ↑              ↑              ↑
-         └──────────────┼──────────────┘
-                        │
-      ┌─────────────────┴─────────────────┐
-      │          SharedWorker             │
-      │  ┌─────────────────────────────┐  │
-      │  │    Binance WebSocket        │  │
-      │  │    Sequence Manager         │  │
-      │  │    Orderbook Processor      │  │
-      │  └─────────────────────────────┘  │
-      └───────────────────────────────────┘
-                        │
-                        ↓
-           wss://stream.binance.us/ws
+┌──────────────────────────────────────────────────────────┐
+│                      Browser Tabs                        │
+├─────────────┬─────────────┬──────────────────────────────┤
+│   Tab 1     │   Tab 2     │   Tab N                      │
+│  (Leader)   │ (Follower)  │  (Follower)                  │
+│             │             │                              │
+│  React UI ←─┼─── Zustand ─┼──→ React UI                  │
+└─────────────┴──────┬──────┴──────────────────────────────┘
+                     │
+       ┌─────────────┴─────────────┐
+       │       SharedWorker        │
+       │  ┌─────────────────────┐  │
+       │  │  BinanceWebSocket   │  │
+       │  │  SequenceManager    │  │
+       │  │  OrderbookProcessor │  │
+       │  └─────────────────────┘  │
+       └─────────────┬─────────────┘
+                     │
+                     ↓
+        wss://stream.binance.us/ws
 ```
 
-## Sync Modes
+## Sync Modes Explained
 
-**SharedWorker** — Single WebSocket shared across all tabs. Best efficiency. Default when supported.
+### SharedWorker (default)
+Single WebSocket shared across all tabs. Most efficient — one connection, one processor, N consumers.
 
-**BroadcastChannel** — Leader tab owns the Worker/WebSocket, broadcasts updates to follower tabs via BroadcastChannel. Fallback for browsers without SharedWorker (Safari).
+### BroadcastChannel
+Leader tab owns the Worker + WebSocket, broadcasts updates to followers via BroadcastChannel. Fallback for Safari (no SharedWorker support). Leader election handles tab close gracefully.
 
-**SAB (SharedArrayBuffer)** — DedicatedWorker writes orderbook data to a SharedArrayBuffer using a binary protocol. Main thread polls via `Atomics.load` in a RAF loop — zero IPC for the hot path. Requires cross-origin isolation headers (COOP/COEP). Experimental.
+### SharedArrayBuffer (experimental)
+DedicatedWorker writes orderbook to a SharedArrayBuffer using a custom binary protocol. Main thread polls via `Atomics.load()` in RAF loop — **zero IPC for the hot path**. Requires COOP/COEP headers (configured in Vite).
+
+**Performance comparison (60s test, production build):**
+| Mode | Frame Drops | Latency (avg) |
+|------|-------------|---------------|
+| SAB | 0 | 0.02ms |
+| SharedWorker | 0-3 | 7-8ms |
+| Broadcast (leader) | 0-3 | 6-8ms |
+| Broadcast (follower) | 0-3 | 15-17ms |
 
 ## Performance Optimizations
 
-- RAF-based rendering with dirty checking
-- Memoized components with custom comparators
-- Object pooling in SAB decode (3 allocations/frame vs 33)
-- O(1) metrics counters (no array operations in hot path)
-- Worker-side orderbook processing (main thread only renders)
-- Broadcast coalescing (one cross-tab message per frame)
+- **RAF-based rendering** — Dirty checking, only render on actual data change
+- **Memoized components** — Custom comparators for OrderBookRow (price+size, not object reference)
+- **Object pooling (SAB)** — Reuse PriceLevel objects, 3 allocations/frame vs 34
+- **O(1) metrics** — No RollingAverage array ops in hot path, simple counters
+- **Worker-side processing** — Main thread only renders, never parses/sorts
+- **Broadcast coalescing** — One cross-tab message per RAF frame, not per WebSocket message
+
+## Technical Decisions & Tradeoffs
+
+### Cumulative totals cascade by design
+Each row shows cumulative sum of all better prices. Recalculated on every update. Alternatives considered:
+- Lazy cumulative (compute on hover) — Rejected: always-visible is standard for trading UIs
+- Virtualization — Unnecessary at 30 rows with 60fps performance
+
+### Sequence gap tolerance
+Binance Futures `@depth` stream has frequent small gaps (50-500 sequence numbers). Strict validation would trigger constant resyncs → rate limiting. Solution: tolerate gaps < 1000, only resync on large gaps.
+
+### SAB uses DedicatedWorker, not SharedWorker
+SharedWorkers don't inherit `crossOriginIsolated` from the page — they need COEP headers on the worker script response itself. DedicatedWorker inherits from parent, simpler setup.
+
+### Port liveness via PING heartbeat
+SharedWorker ports can go stale (tab crash, `port.close()` before DISCONNECT delivered). Solution: main thread pings every 2s, worker prunes ports not seen in 6s.
+
+## Bugs Fixed
+
+1. **TypedArray allocation in RAF loop** — Initial SAB was 5x slower than SharedWorker. Root cause: `new Int32Array()` created 60x/sec for version check. Fix: cached `SABReader`/`SABWriter` classes.
+
+2. **Late-joining tabs stuck on "disconnected"** — Second tab sent CONNECT, but handler did nothing since WebSocket already active. Fix: `sendCurrentState(port)` for late joiners.
+
+3. **Stale ports inflate tab count** — `port.close()` before DISCONNECT delivered. Fix: PING heartbeat + prune interval.
+
+4. **Futures rate limiting (429/418)** — Every sequence gap triggered snapshot fetch. Fix: gap tolerance threshold + max retry limit.
 
 ## Project Structure
-
 ```
 src/
-├── components/       # React components (OrderBook, Controls, MetricsPanel)
-├── hooks/            # useWorker, useSABWorker, useRAFBridge, useOrderbook
-├── worker/           # Web Workers (dedicated, shared, SAB)
-├── lib/              # Binary protocol, leader election, exchange config
+├── components/       # React (OrderBook, Controls, MetricsPanel)
+├── hooks/            # useWorker, useSABWorker, useRAFBridge
+├── worker/           # Web Workers (dedicated, shared, SAB variants)
+├── lib/              # binary-protocol, leader-election, exchange-config
 ├── store/            # Zustand store
-└── types/            # TypeScript types
+└── types/            # TypeScript types + Binance API type guards
 ```
+
+## Tech Stack
+
+React 19 · TypeScript 5.9 · Vite 7 · Zustand 5 · Web Workers · SharedArrayBuffer · Atomics
