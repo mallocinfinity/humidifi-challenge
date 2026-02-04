@@ -82,7 +82,7 @@ DedicatedWorker writes orderbook to a SharedArrayBuffer using a custom binary pr
 - **Object pooling (SAB)** — Reuse PriceLevel objects, 3 allocations/frame vs 34
 - **O(1) metrics** — No RollingAverage array ops in hot path, simple counters
 - **Worker-side processing** — Main thread only renders, never parses/sorts
-- **Broadcast coalescing** — One cross-tab message per RAF frame, not per WebSocket message
+- **Direct broadcast** — Leader broadcasts every worker message immediately (no RAF coalescing — RAF is paused for background tabs)
 
 ## Technical Decisions & Tradeoffs
 
@@ -109,6 +109,14 @@ SharedWorker ports can go stale (tab crash, `port.close()` before DISCONNECT del
 3. **Stale ports inflate tab count** — `port.close()` before DISCONNECT delivered. Fix: PING heartbeat + prune interval.
 
 4. **Futures rate limiting (429/418)** — Every sequence gap triggered snapshot fetch. Fix: gap tolerance threshold + max retry limit.
+
+## State Management
+
+**Zustand** was chosen over Redux/Context for:
+- **Selector-based subscriptions** — Components only re-render when their specific slice changes, not on every store update
+- **No Context wrapper** — Avoids provider hell and React tree coupling
+- **Minimal boilerplate** — No actions/reducers/dispatch ceremony
+- **Worker-friendly** — Store can be updated from RAF callbacks without hooks
 
 ## Project Structure
 ```

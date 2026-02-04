@@ -30,11 +30,5 @@ export function detectSyncMode(): SyncMode {
     result = typeof SharedWorker !== 'undefined' ? 'shared' : 'broadcast';
   }
 
-  console.log('[sync-mode] detectSyncMode():', result, {
-    urlMode: mode,
-    canSAB: canUseSharedArrayBuffer(),
-    crossOriginIsolated: globalThis.crossOriginIsolated,
-  });
-
   return result;
 }

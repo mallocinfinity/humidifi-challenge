@@ -89,15 +89,11 @@ function connect(symbol: string, wsUrl: string, restUrl: string, streamSuffix: s
 
   // Initialize WebSocket
   binanceWS = new BinanceWebSocket(symbol, wsUrl, streamSuffix, {
-    onOpen: () => {
-      console.log('[Worker] WebSocket connected');
-    },
+    onOpen: () => {},
     onMessage: (data) => {
       sequenceManager?.handleMessage(data);
     },
-    onClose: () => {
-      console.log('[Worker] WebSocket closed');
-    },
+    onClose: () => {},
     onError: (error) => {
       console.error('[Worker] WebSocket error:', error);
       postTypedMessage({

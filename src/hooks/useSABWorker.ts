@@ -45,7 +45,6 @@ export function useSABWorker(): void {
       const msg = event.data;
       switch (msg.type) {
         case 'SAB_READY':
-          console.log('[SAB main] Received SAB_READY, byteLength:', msg.buffer.byteLength);
           readerRef.current = new SABReader(msg.buffer);
           lastVersionRef.current = 0;
           break;

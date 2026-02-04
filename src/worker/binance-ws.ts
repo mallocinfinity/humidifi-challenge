@@ -37,7 +37,6 @@ export class BinanceWebSocket {
 
     this.shouldReconnect = true;
     const streamUrl = `${this.wsUrl}/${this.symbol}${this.streamSuffix}`;
-    console.log('[BinanceWS] Connecting:', streamUrl);
 
     try {
       this.ws = new WebSocket(streamUrl);

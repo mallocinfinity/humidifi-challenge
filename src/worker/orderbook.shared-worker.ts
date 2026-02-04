@@ -136,15 +136,11 @@ function connect(symbol: string, wsUrl: string, restUrl: string, streamSuffix: s
   });
 
   binanceWS = new BinanceWebSocket(symbol, wsUrl, streamSuffix, {
-    onOpen: () => {
-      console.log('[SharedWorker] WebSocket connected');
-    },
+    onOpen: () => {},
     onMessage: (data) => {
       sequenceManager?.handleMessage(data);
     },
-    onClose: () => {
-      console.log('[SharedWorker] WebSocket closed');
-    },
+    onClose: () => {},
     onError: (error) => {
       console.error('[SharedWorker] WebSocket error:', error);
       broadcastToAll({
@@ -208,7 +204,6 @@ function removePort(port: MessagePort): void {
 self.onconnect = (event: MessageEvent) => {
   const port = event.ports[0];
   portMap.set(port, Date.now());
-  console.log(`[SharedWorker] onconnect — now ${portMap.size} port(s), wsActive=${!!binanceWS}`);
 
   port.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
     const { type } = e.data;
