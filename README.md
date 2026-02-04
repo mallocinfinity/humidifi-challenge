@@ -2,6 +2,8 @@
 
 High-performance orderbook visualization with sub-millisecond rendering, multi-tab synchronization, and three sync mode architectures.
 
+![GID](https://github.com/user-attachments/assets/9c3e01f9-c7a5-4533-abba-6bccd8c76478)
+
 ## Features
 
 - **Real-time WebSocket** — Binance US Spot & Futures with sequence-gapped resync
@@ -128,14 +130,41 @@ src/
 ├── store/            # Zustand store
 └── types/            # TypeScript types + Binance API type guards
 ```
+## State Management
+
+**Zustand** was chosen over Redux/Context for:
+- **Selector-based subscriptions** — Components only re-render when their specific slice changes, not on every store update
+- **No Context wrapper** — Avoids provider hell and React tree coupling  
+- **Minimal boilerplate** — No actions/reducers/dispatch ceremony
+- **Worker-friendly** — Store can be updated from RAF callbacks without hooks
+
+## Performance Metrics
+
+The MetricsPanel displays:
+- **Messages/sec** — Render update rate (slices delivered to UI). The worker processes all WebSocket messages (potentially 50-100+/sec) and emits coalesced updates at 10Hz to prevent render thrashing.
+- **Latency** — End-to-end processing time from data decode to store update (cur/min/avg/max/p95)
+- **FPS** — Actual frame rate, target 60
+- **Dropped frames** — Frames exceeding 16.67ms budget
+- **JS Heap** — Memory usage via `performance.memory`
+
+## Tradeoffs & Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Worker-side processing | Main thread only renders; parsing, sorting, and delta application happen in worker |
+| RAF-based rendering | Dirty checking prevents render thrashing; only render when data actually changes |
+| 10Hz UI updates | Worker coalesces WebSocket messages (up to 100/sec) into 10 slices/sec — imperceptible to humans, massive perf win |
+| Cumulative totals recalculated | Simpler than incremental updates; 30 rows × 10/sec = trivial compute |
+| SharedWorker as default | Single WebSocket across tabs; BroadcastChannel as fallback for Safari |
+| SAB experimental | Proves zero-copy capability; structured clone is actually fast enough at this data rate |
 
 ## Future Improvements
 
-- Virtualized list for 100+ levels
-- WebSocket compression
+- Virtualized list for 100+ price levels
+- WebSocket compression (permessage-deflate)
+- Service Worker for offline caching of last known state
 - E2E tests with Playwright
 - Configurable depth levels via UI
-- Service Worker for offline caching
 
 ## Tech Stack
 
