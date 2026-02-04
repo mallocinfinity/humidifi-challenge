@@ -77,31 +77,31 @@ export function MetricsPanel() {
           <div className="metrics-row">
             <span className="metrics-label">Average</span>
             <span className={`metrics-value ${getLatencyClass(metrics.latencyMs.avg)}`}>
-              {metrics.latencyMs.avg.toFixed(1)}
+              {metrics.latencyMs.avg.toFixed(2)}
             </span>
           </div>
           <div className="latency-breakdown">
             <div className="latency-stat">
               <span className="latency-stat-label">cur</span>
-              <span className="latency-stat-value">{metrics.latencyMs.current.toFixed(1)}</span>
+              <span className="latency-stat-value">{metrics.latencyMs.current.toFixed(2)}</span>
             </div>
             <div className="latency-stat">
               <span className="latency-stat-label">min</span>
               <span className="latency-stat-value">
-                {(metrics.latencyMs.min === Infinity || metrics.messagesPerSecond === 0) ? '-' : metrics.latencyMs.min.toFixed(1)}
+                {(metrics.latencyMs.min === Infinity || metrics.messagesPerSecond === 0) ? '-' : metrics.latencyMs.min.toFixed(2)}
               </span>
             </div>
             <div className="latency-stat">
               <span className="latency-stat-label">avg</span>
-              <span className="latency-stat-value">{metrics.latencyMs.avg.toFixed(1)}</span>
+              <span className="latency-stat-value">{metrics.latencyMs.avg.toFixed(2)}</span>
             </div>
             <div className="latency-stat">
               <span className="latency-stat-label">max</span>
-              <span className="latency-stat-value">{metrics.latencyMs.max.toFixed(1)}</span>
+              <span className="latency-stat-value">{metrics.latencyMs.max.toFixed(2)}</span>
             </div>
             <div className="latency-stat">
               <span className="latency-stat-label">p95</span>
-              <span className="latency-stat-value">{metrics.latencyMs.p95.toFixed(1)}</span>
+              <span className="latency-stat-value">{metrics.latencyMs.p95.toFixed(2)}</span>
             </div>
           </div>
         </div>

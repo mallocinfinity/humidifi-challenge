@@ -25,6 +25,7 @@ function useSharedWorkerMode(): void {
   const setSyncMode = useOrderbookStore((s) => s.setSyncMode);
 
   const handleMessageRef = useRef(handleWorkerMessage);
+  // eslint-disable-next-line react-hooks/refs
   handleMessageRef.current = handleWorkerMessage;
 
   useEffect(() => {
@@ -59,7 +60,13 @@ function useSharedWorkerMode(): void {
     worker.port.postMessage({ type: 'CONNECT', ...exchangeConfig });
     worker.port.start();
 
+    // Heartbeat — lets SharedWorker prune stale ports from crashed/refreshed tabs
+    const pingInterval = setInterval(() => {
+      worker.port.postMessage({ type: 'PING' });
+    }, 2000);
+
     return () => {
+      clearInterval(pingInterval);
       worker.port.postMessage({ type: 'DISCONNECT' });
       worker.port.close();
       sharedWorkerRef.current = null;
@@ -80,6 +87,7 @@ function useBroadcastMode(): void {
   const setSyncMode = useOrderbookStore((s) => s.setSyncMode);
 
   const handleMessageRef = useRef(handleWorkerMessage);
+  // eslint-disable-next-line react-hooks/refs
   handleMessageRef.current = handleWorkerMessage;
 
   // Pending broadcast state — coalesces to one broadcast per RAF frame
@@ -253,9 +261,12 @@ const syncMode = detectSyncMode();
 const exchangeConfig = EXCHANGES[detectExchange()];
 
 export function useWorker(): void {
+  // syncMode is determined at module load time and never changes — safe to branch.
   if (syncMode === 'shared') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     useSharedWorkerMode();
   } else {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     useBroadcastMode();
   }
 }

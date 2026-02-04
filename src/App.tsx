@@ -11,10 +11,13 @@ import { MetricsPanel } from '@/components/MetricsPanel';
 const syncMode = detectSyncMode();
 
 function App() {
-  // Initialize worker connection based on sync mode
+  // Initialize worker connection based on sync mode.
+  // syncMode is determined at module load time and never changes — safe to branch.
   if (syncMode === 'sab') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     useSABWorker();
   } else {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     useWorker();
   }
 

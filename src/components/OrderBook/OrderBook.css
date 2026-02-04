@@ -156,3 +156,13 @@
 .orderbook-row.flash-ask {
   animation: flash-ask 0.3s ease-out;
 }
+
+/* Empty/loading state */
+.orderbook-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}

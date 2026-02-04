@@ -19,6 +19,7 @@ export class OrderbookProcessor {
 
     for (const [price, quantity] of snapshot.bids) {
       const qty = parseFloat(quantity);
+      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
       if (qty > 0) {
         this.bids.set(price, qty);
       }
@@ -26,6 +27,7 @@ export class OrderbookProcessor {
 
     for (const [price, quantity] of snapshot.asks) {
       const qty = parseFloat(quantity);
+      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
       if (qty > 0) {
         this.asks.set(price, qty);
       }
@@ -38,6 +40,7 @@ export class OrderbookProcessor {
     // Apply bid updates
     for (const [price, quantity] of update.b) {
       const qty = parseFloat(quantity);
+      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
       if (qty === 0) {
         this.bids.delete(price);
       } else {
@@ -48,6 +51,7 @@ export class OrderbookProcessor {
     // Apply ask updates
     for (const [price, quantity] of update.a) {
       const qty = parseFloat(quantity);
+      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
       if (qty === 0) {
         this.asks.delete(price);
       } else {

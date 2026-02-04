@@ -24,9 +24,11 @@ export function useRAFBridge(): UseRAFBridgeReturn {
   });
 
   const rafIdRef = useRef<number | null>(null);
+  // eslint-disable-next-line react-hooks/purity
   const lastFrameTimeRef = useRef<number>(performance.now());
   const latencyTracker = useRef(new RollingAverage(100));
   const messageCountRef = useRef(0);
+  // eslint-disable-next-line react-hooks/purity
   const lastMetricsUpdateRef = useRef(performance.now());
 
   // Get store actions

@@ -9,23 +9,46 @@ import { OrderbookProcessor } from './orderbook-processor.ts';
 
 declare const self: SharedWorkerGlobalScope;
 
-const ports: MessagePort[] = [];
+// Port → last seen timestamp (Date.now)
+const portMap = new Map<MessagePort, number>();
+
+const PING_STALE_MS = 6000;  // Prune ports not seen in 6s
+const PRUNE_INTERVAL = 3000; // Check every 3s
 
 let binanceWS: BinanceWebSocket | null = null;
 let sequenceManager: SequenceManager | null = null;
 let orderbookProcessor: OrderbookProcessor | null = null;
 let updateInterval: ReturnType<typeof setInterval> | null = null;
+let pruneInterval: ReturnType<typeof setInterval> | null = null;
 
 // Broadcast a message to all connected ports
 function broadcastToAll(message: WorkerToMainMessage): void {
-  for (const port of ports) {
+  for (const port of portMap.keys()) {
     port.postMessage(message);
   }
 }
 
 // Broadcast tab count to all ports
 function broadcastTabCount(): void {
-  broadcastToAll({ type: 'METRICS', data: { tabCount: ports.length } });
+  broadcastToAll({ type: 'METRICS', data: { tabCount: portMap.size } });
+}
+
+// Prune ports that haven't pinged recently
+function pruneStale(): void {
+  const now = Date.now();
+  let pruned = false;
+  for (const [port, lastSeen] of portMap) {
+    if (now - lastSeen > PING_STALE_MS) {
+      portMap.delete(port);
+      pruned = true;
+    }
+  }
+  if (pruned) {
+    broadcastTabCount();
+    if (portMap.size === 0) {
+      disconnect();
+    }
+  }
 }
 
 // Map sequence state to connection status
@@ -69,6 +92,27 @@ function postSlice(): void {
     data: slice,
     workerTimestamp: performance.now(),
   });
+}
+
+// Send current state to a single port (for late-joining tabs)
+function sendCurrentState(port: MessagePort): void {
+  // Send current connection status
+  if (sequenceManager) {
+    port.postMessage({
+      type: 'STATUS_CHANGE',
+      status: mapSequenceState(sequenceManager.state),
+    });
+  }
+
+  // Send latest orderbook if synchronized
+  if (orderbookProcessor && sequenceManager?.state === 'synchronized') {
+    const slice = orderbookProcessor.getSlice();
+    port.postMessage({
+      type: 'ORDERBOOK_UPDATE',
+      data: slice,
+      workerTimestamp: performance.now(),
+    });
+  }
 }
 
 // Start the WebSocket connection (called on first CONNECT)
@@ -127,10 +171,17 @@ function connect(symbol: string, wsUrl: string, restUrl: string, streamSuffix: s
       postSlice();
     }
   }, 100);
+
+  // Start stale port pruning
+  pruneInterval = setInterval(pruneStale, PRUNE_INTERVAL);
 }
 
 // Disconnect and clean up WebSocket
 function disconnect(): void {
+  if (pruneInterval) {
+    clearInterval(pruneInterval);
+    pruneInterval = null;
+  }
   if (updateInterval) {
     clearInterval(updateInterval);
     updateInterval = null;
@@ -145,13 +196,10 @@ function disconnect(): void {
 
 // Remove a port and clean up if last tab disconnects
 function removePort(port: MessagePort): void {
-  const idx = ports.indexOf(port);
-  if (idx !== -1) {
-    ports.splice(idx, 1);
-  }
+  portMap.delete(port);
   broadcastTabCount();
 
-  if (ports.length === 0) {
+  if (portMap.size === 0) {
     disconnect();
   }
 }
@@ -159,23 +207,33 @@ function removePort(port: MessagePort): void {
 // Handle new tab connections
 self.onconnect = (event: MessageEvent) => {
   const port = event.ports[0];
-  ports.push(port);
-  console.log(`[SharedWorker] onconnect — now ${ports.length} port(s), wsActive=${!!binanceWS}`);
+  portMap.set(port, Date.now());
+  console.log(`[SharedWorker] onconnect — now ${portMap.size} port(s), wsActive=${!!binanceWS}`);
 
   port.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
     const { type } = e.data;
 
+    // Any message from this port refreshes its liveness
+    portMap.set(port, Date.now());
+
     switch (type) {
       case 'CONNECT':
-        // First tab triggers WebSocket start; subsequent tabs piggyback
         if (!binanceWS) {
+          // First tab triggers WebSocket start
           connect(e.data.symbol, e.data.wsUrl, e.data.restUrl, e.data.streamSuffix);
+        } else {
+          // Late-joining tab — send current state immediately
+          sendCurrentState(port);
         }
         break;
 
       case 'DISCONNECT':
         removePort(port);
         return;
+
+      case 'PING':
+        // Liveness already updated above — nothing else needed
+        break;
 
       case 'SET_DEPTH':
         orderbookProcessor?.setDepth(e.data.depth);

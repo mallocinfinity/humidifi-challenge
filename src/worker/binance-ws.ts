@@ -86,7 +86,16 @@ export class BinanceWebSocket {
   }
 
   private handleReconnect(): void {
-    if (!this.shouldReconnect || this.retryCount >= MAX_RETRIES) {
+    if (!this.shouldReconnect) {
+      return;
+    }
+
+    if (this.retryCount >= MAX_RETRIES) {
+      // Don't give up permanently — wait 60s then reset and try again
+      this.reconnectTimeout = setTimeout(() => {
+        this.retryCount = 0;
+        this.connect();
+      }, 60000);
       return;
     }
 

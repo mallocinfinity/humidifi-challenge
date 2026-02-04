@@ -167,8 +167,8 @@ export class SABReader {
   // PriceLevel objects are mutated in place from the pre-allocated pool.
   decode(): OrderbookSlice {
     const v = this.dv;
-    const bidCount = v.getInt32(BID_COUNT_OFFSET, true);
-    const askCount = v.getInt32(ASK_COUNT_OFFSET, true);
+    const bidCount = Math.min(v.getInt32(BID_COUNT_OFFSET, true), MAX_DEPTH);
+    const askCount = Math.min(v.getInt32(ASK_COUNT_OFFSET, true), MAX_DEPTH);
 
     let off = BIDS_OFFSET;
     for (let i = 0; i < bidCount; i++) {

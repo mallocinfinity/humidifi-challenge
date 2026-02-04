@@ -1,73 +1,101 @@
-# React + TypeScript + Vite
+# Humidifi — Real-Time BTC/USD Orderbook
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Real-time orderbook visualization for BTC/USD with three synchronization modes, multi-tab support, and sub-millisecond rendering via SharedArrayBuffer.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Real-time WebSocket connection to Binance (spot & futures)
+- Three sync modes: SharedWorker (default), BroadcastChannel (fallback), SharedArrayBuffer (experimental)
+- Multi-tab support with single WebSocket connection
+- Leader election for BroadcastChannel mode
+- Freeze/resume functionality
+- Performance metrics panel (latency, FPS, memory, dropped frames)
+- Binary protocol for zero-copy SAB mode
+- Sequence management with gap detection and auto-resync
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+React 19, TypeScript 5.9, Vite 7, Zustand 5, Web Workers
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install
+pnpm dev          # development (localhost:5173)
+pnpm build && pnpm preview   # production (localhost:4173)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## URL Parameters
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Param | Values | Description |
+|-------|--------|-------------|
+| `mode` | `shared` (default), `broadcast`, `sab` | Sync mode |
+| `exchange` | `spot` (default), `futures` | Data source |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Parameters compose freely:
+
+```
+localhost:4173                              # SharedWorker + Binance US Spot
+localhost:4173/?mode=sab                    # SharedArrayBuffer mode
+localhost:4173/?exchange=futures             # Binance Futures (~50-100 msg/sec)
+localhost:4173/?mode=sab&exchange=futures    # SAB + Futures (max throughput)
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          Browser Tabs                           │
+├─────────────┬─────────────┬─────────────────────────────────────┤
+│   Tab 1     │   Tab 2     │   Tab N                             │
+│  (Leader)   │ (Follower)  │  (Follower)                         │
+│             │             │                                     │
+│  React UI   │  React UI   │   React UI                          │
+│     ↑       │     ↑       │      ↑                              │
+│  Zustand    │  Zustand    │   Zustand                           │
+│     ↑       │     ↑       │      ↑                              │
+└─────────────┴─────────────┴─────────────────────────────────────┘
+         ↑              ↑              ↑
+         └──────────────┼──────────────┘
+                        │
+      ┌─────────────────┴─────────────────┐
+      │          SharedWorker             │
+      │  ┌─────────────────────────────┐  │
+      │  │    Binance WebSocket        │  │
+      │  │    Sequence Manager         │  │
+      │  │    Orderbook Processor      │  │
+      │  └─────────────────────────────┘  │
+      └───────────────────────────────────┘
+                        │
+                        ↓
+           wss://stream.binance.us/ws
+```
+
+## Sync Modes
+
+**SharedWorker** — Single WebSocket shared across all tabs. Best efficiency. Default when supported.
+
+**BroadcastChannel** — Leader tab owns the Worker/WebSocket, broadcasts updates to follower tabs via BroadcastChannel. Fallback for browsers without SharedWorker (Safari).
+
+**SAB (SharedArrayBuffer)** — DedicatedWorker writes orderbook data to a SharedArrayBuffer using a binary protocol. Main thread polls via `Atomics.load` in a RAF loop — zero IPC for the hot path. Requires cross-origin isolation headers (COOP/COEP). Experimental.
+
+## Performance Optimizations
+
+- RAF-based rendering with dirty checking
+- Memoized components with custom comparators
+- Object pooling in SAB decode (3 allocations/frame vs 33)
+- O(1) metrics counters (no array operations in hot path)
+- Worker-side orderbook processing (main thread only renders)
+- Broadcast coalescing (one cross-tab message per frame)
+
+## Project Structure
+
+```
+src/
+├── components/       # React components (OrderBook, Controls, MetricsPanel)
+├── hooks/            # useWorker, useSABWorker, useRAFBridge, useOrderbook
+├── worker/           # Web Workers (dedicated, shared, SAB)
+├── lib/              # Binary protocol, leader election, exchange config
+├── store/            # Zustand store
+└── types/            # TypeScript types
 ```

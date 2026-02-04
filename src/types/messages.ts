@@ -9,6 +9,7 @@ import type { Metrics } from './metrics.ts';
 export type MainToWorkerMessage =
   | { type: 'CONNECT'; symbol: string; wsUrl: string; restUrl: string; streamSuffix: string }
   | { type: 'DISCONNECT' }
+  | { type: 'PING' }
   | { type: 'SET_DEPTH'; depth: number };  // Change from 15 to N levels
 
 /** Messages from Worker → Main Thread */

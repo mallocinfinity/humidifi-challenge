@@ -10,28 +10,3 @@ export interface OrderBookRowProps {
   side: 'bid' | 'ask';
   maxCumulative: number;      // For depth bar calculation
 }
-
-/** Props for OrderBook component */
-export interface OrderBookProps {
-  // No props - reads from store via hooks
-}
-
-/** Props for MetricsPanel component */
-export interface MetricsPanelProps {
-  // No props - reads from store via hooks
-}
-
-/** Props for Controls component */
-export interface ControlsProps {
-  // No props - reads from store via hooks
-}
-
-/** Props for StatusIndicator component */
-export interface StatusIndicatorProps {
-  // No props - reads from store via hooks
-}
-
-/** Props for Spread component */
-export interface SpreadProps {
-  // No props - reads from store via hooks
-}

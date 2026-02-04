@@ -4,6 +4,9 @@
 import type { BinanceDepthUpdate, BinanceDepthSnapshot } from '@/types';
 import { isBinanceDepthSnapshot } from '@/types';
 
+const FETCH_TIMEOUT_MS = 10000;
+const MAX_SNAPSHOT_RETRIES = 3;
+
 export type SequenceState =
   | 'buffering'      // Collecting messages before snapshot
   | 'syncing'        // Fetching snapshot
@@ -25,6 +28,8 @@ export class SequenceManager {
   private symbol: string;
   private restUrl: string;
   private isFetching = false;
+  private fetchRetryCount = 0;
+  private abortController: AbortController | null = null;
 
   constructor(symbol: string, restUrl: string, callbacks: SequenceManagerCallbacks) {
     this.symbol = symbol.toUpperCase();
@@ -84,11 +89,25 @@ export class SequenceManager {
     if (this.isFetching) return;
 
     this.isFetching = true;
+    this.fetchRetryCount = 0;
     this.setState('syncing');
+
+    await this.doFetch();
+  }
+
+  private async doFetch(): Promise<void> {
+    // Abort any previous in-flight request
+    this.abortController?.abort();
+    this.abortController = new AbortController();
+    const { signal } = this.abortController;
+
+    // Timeout: abort fetch after FETCH_TIMEOUT_MS
+    const timeout = setTimeout(() => this.abortController?.abort(), FETCH_TIMEOUT_MS);
 
     try {
       const url = `${this.restUrl}?symbol=${this.symbol}&limit=1000`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal });
+      clearTimeout(timeout);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -102,12 +121,21 @@ export class SequenceManager {
 
       this.processSnapshot(data);
     } catch (error) {
-      console.error('[SequenceManager] Snapshot fetch failed:', error);
-      // Retry after delay
-      setTimeout(() => {
+      clearTimeout(timeout);
+      // Don't retry if aborted (reset() was called)
+      if (signal.aborted) return;
+
+      this.fetchRetryCount++;
+      console.error(`[SequenceManager] Snapshot fetch failed (attempt ${this.fetchRetryCount}/${MAX_SNAPSHOT_RETRIES}):`, error);
+
+      if (this.fetchRetryCount < MAX_SNAPSHOT_RETRIES) {
+        setTimeout(() => {
+          if (!signal.aborted) this.doFetch();
+        }, 2000);
+      } else {
+        console.error('[SequenceManager] Max snapshot retries reached');
         this.isFetching = false;
-        this.fetchSnapshot();
-      }, 2000);
+      }
     }
   }
 
@@ -115,10 +143,11 @@ export class SequenceManager {
     // Step 4: If snapshot.lastUpdateId < first buffered event's U, refetch
     const firstBuffered = this.buffer[0];
     if (firstBuffered && snapshot.lastUpdateId < firstBuffered.U) {
-      console.log('[SequenceManager] Snapshot too old, refetching...');
-      this.isFetching = false;
-      setTimeout(() => this.fetchSnapshot(), 500);
-      return;
+      if (this.fetchRetryCount < MAX_SNAPSHOT_RETRIES) {
+        this.fetchRetryCount++;
+        setTimeout(() => this.doFetch(), 500);
+        return;
+      }
     }
 
     // Step 5: Discard buffered events where u <= snapshot.lastUpdateId
@@ -127,13 +156,7 @@ export class SequenceManager {
     );
 
     // Step 6: First valid event should have U <= lastUpdateId <= u
-    const firstValid = validUpdates[0];
-    if (firstValid) {
-      if (!(firstValid.U <= snapshot.lastUpdateId + 1 && snapshot.lastUpdateId + 1 <= firstValid.u + 1)) {
-        // Gap between snapshot and first buffered event - this is acceptable
-        // as long as we have continuous sequence from first valid event
-      }
-    }
+    // (gap between snapshot and first buffered event is acceptable)
 
     this.lastUpdateId = snapshot.lastUpdateId;
     this.buffer = [];
@@ -172,9 +195,12 @@ export class SequenceManager {
   }
 
   reset(): void {
+    this.abortController?.abort();
+    this.abortController = null;
     this.buffer = [];
     this.currentState = 'buffering';
     this.lastUpdateId = 0;
     this.isFetching = false;
+    this.fetchRetryCount = 0;
   }
 }

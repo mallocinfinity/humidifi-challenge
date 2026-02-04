@@ -46,9 +46,4 @@ export { detectSyncMode } from '@/lib/sync-mode.ts';
 // Component props types
 export type {
   OrderBookRowProps,
-  OrderBookProps,
-  MetricsPanelProps,
-  ControlsProps,
-  StatusIndicatorProps,
-  SpreadProps,
 } from './components.ts';

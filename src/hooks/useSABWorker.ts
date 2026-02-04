@@ -99,17 +99,20 @@ export function useSABWorker(): void {
           lastVersionRef.current = v;
           messageCount++;
 
-          const slice = reader.decode();
-          updateLiveOrderbook(slice);
+          // When frozen: skip decode to avoid mutating pooled PriceLevel objects
+          // that the frozen snapshot still references. Version stays current so
+          // there's no stale burst on unfreeze.
+          if (!useOrderbookStore.getState().isFrozen) {
+            const slice = reader.decode();
+            updateLiveOrderbook(slice);
 
-          // Latency: decode + store update time. O(1) arithmetic, no arrays.
-          const lat = performance.now() - now;
-          // console.log('[SAB] decode+store latency:', lat.toFixed(4), 'ms');
-          latLast = lat;
-          latSum += lat;
-          latCount++;
-          if (lat < latMin) latMin = lat;
-          if (lat > latMax) latMax = lat;
+            const lat = performance.now() - now;
+            latLast = lat;
+            latSum += lat;
+            latCount++;
+            if (lat < latMin) latMin = lat;
+            if (lat > latMax) latMax = lat;
+          }
         }
       }
 
