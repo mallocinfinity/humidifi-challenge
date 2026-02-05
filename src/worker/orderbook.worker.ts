@@ -54,7 +54,7 @@ function handleUpdate(update: BinanceDepthUpdate): void {
 
 // Post current orderbook slice
 function postSlice(): void {
-  if (!orderbookProcessor) return;
+  if (!orderbookProcessor || !orderbookProcessor.isDirty) return;
 
   const slice = orderbookProcessor.getSlice();
   postTypedMessage({
@@ -155,6 +155,10 @@ self.onmessage = (event: MessageEvent<MainToWorkerMessage>): void => {
 
     case 'SET_DEPTH':
       orderbookProcessor?.setDepth(event.data.depth);
+      break;
+
+    case 'VISIBILITY':
+      // Dedicated worker doesn't need visibility hints.
       break;
   }
 };

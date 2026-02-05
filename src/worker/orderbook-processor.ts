@@ -8,14 +8,23 @@ export class OrderbookProcessor {
   private asks: Map<number, number> = new Map();
   private lastId: number = 0;
   private depth: number = 15;
+  private topBidThreshold: number | null = null;
+  private topAskThreshold: number | null = null;
+  private dirtyTop: boolean = true;
 
   setDepth(depth: number): void {
     this.depth = depth;
+    this.topBidThreshold = null;
+    this.topAskThreshold = null;
+    this.dirtyTop = true;
   }
 
   applySnapshot(snapshot: BinanceDepthSnapshot): void {
     this.bids.clear();
     this.asks.clear();
+    this.topBidThreshold = null;
+    this.topAskThreshold = null;
+    this.dirtyTop = true;
 
     for (const [price, quantity] of snapshot.bids) {
       const p = parseFloat(price);
@@ -49,6 +58,7 @@ export class OrderbookProcessor {
       } else {
         this.bids.set(p, qty);
       }
+      this.markBidDirty(p);
     }
 
     // Apply ask updates
@@ -61,6 +71,7 @@ export class OrderbookProcessor {
       } else {
         this.asks.set(p, qty);
       }
+      this.markAskDirty(p);
     }
 
     this.lastId = update.u;
@@ -79,6 +90,11 @@ export class OrderbookProcessor {
       .map(([price, size]) => ({ price, size }))
       .sort((a, b) => a.price - b.price)
       .slice(0, this.depth);
+
+    // Update thresholds used for dirty tracking
+    this.topBidThreshold = sortedBids[sortedBids.length - 1]?.price ?? null;
+    this.topAskThreshold = sortedAsks[sortedAsks.length - 1]?.price ?? null;
+    this.dirtyTop = false;
 
     // Calculate cumulative values
     const bidLevels = this.calculateCumulative(sortedBids);
@@ -140,5 +156,31 @@ export class OrderbookProcessor {
 
   get askCount(): number {
     return this.asks.size;
+  }
+
+  get isDirty(): boolean {
+    return this.dirtyTop;
+  }
+
+  private markBidDirty(price: number): void {
+    if (this.dirtyTop) return;
+    if (this.bids.size < this.depth || this.topBidThreshold === null) {
+      this.dirtyTop = true;
+      return;
+    }
+    if (price >= this.topBidThreshold) {
+      this.dirtyTop = true;
+    }
+  }
+
+  private markAskDirty(price: number): void {
+    if (this.dirtyTop) return;
+    if (this.asks.size < this.depth || this.topAskThreshold === null) {
+      this.dirtyTop = true;
+      return;
+    }
+    if (price <= this.topAskThreshold) {
+      this.dirtyTop = true;
+    }
   }
 }

@@ -58,7 +58,7 @@ function handleUpdate(update: BinanceDepthUpdate): void {
 
 // ─── Write slice to SAB ──────────────────────────────────────────────────────
 function writeSlice(): void {
-  if (!orderbookProcessor || !writer) return;
+  if (!orderbookProcessor || !orderbookProcessor.isDirty || !writer) return;
   const slice = orderbookProcessor.getSlice();
   writer.encode(slice);
   // Version is atomically incremented inside writer.encode().
@@ -143,6 +143,10 @@ self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
 
     case 'SET_DEPTH':
       orderbookProcessor?.setDepth(e.data.depth);
+      break;
+
+    case 'VISIBILITY':
+      // Dedicated worker doesn't need visibility hints.
       break;
   }
 };

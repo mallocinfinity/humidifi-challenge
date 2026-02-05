@@ -73,11 +73,35 @@ export function useSABWorker(): void {
     let lastMetricsUpdate = performance.now();
     let messageCount = 0;
     let droppedFrameCount = 0;
+    let frameCount = 0;
     let latSum = 0;
     let latCount = 0;
     let latMin = Infinity;
     let latMax = 0;
     let latLast = 0;
+    const frameBudget = 1000 / 60;
+
+    const resetMetrics = () => {
+      messageCount = 0;
+      droppedFrameCount = 0;
+      frameCount = 0;
+      latSum = 0;
+      latCount = 0;
+      latMin = Infinity;
+      latMax = 0;
+      latLast = 0;
+      lastMetricsUpdate = performance.now();
+      lastFrameTime = lastMetricsUpdate;
+    };
+
+    const handleVisibilityChange = () => {
+      // Prevent huge frame deltas when returning from background.
+      resetMetrics();
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     // ─── RAF loop — matches SharedWorker's useRAFBridge pattern exactly ──
     // Metrics computed + published inside RAF (same as SharedWorker) so
@@ -87,10 +111,16 @@ export function useSABWorker(): void {
       if (!isRunning) return;
 
       const now = performance.now();
+      const isHidden = typeof document !== 'undefined' && document.hidden;
+
       const frameDelta = now - lastFrameTime;
       lastFrameTime = now;
-      // >20ms = meaningfully behind schedule, not just vsync jitter
-      if (frameDelta > 20) droppedFrameCount++;
+      if (!isHidden) {
+        frameCount++;
+        // Count truly missed frames (e.g. 33ms ≈ 1 missed, 50ms ≈ 2 missed)
+        const missed = Math.max(0, Math.floor(frameDelta / frameBudget) - 1);
+        if (missed > 0) droppedFrameCount += missed;
+      }
 
       // Poll SAB — cached views, zero allocation for version check
       const reader = readerRef.current;
@@ -119,8 +149,10 @@ export function useSABWorker(): void {
 
       // Metrics every second — inside RAF, matching SharedWorker's useRAFBridge.
       // O(1) computation: just reads cached min/max/sum/count. No sort, no spread.
-      if (now - lastMetricsUpdate >= 1000) {
+      const elapsed = now - lastMetricsUpdate;
+      if (!isHidden && elapsed >= 1000) {
         const avg = latCount > 0 ? latSum / latCount : 0;
+        const fps = elapsed > 0 ? Math.round((frameCount * 1000) / elapsed) : 0;
         updateMetrics({
           messagesPerSecond: messageCount,
           latencyMs: {
@@ -130,7 +162,7 @@ export function useSABWorker(): void {
             max: Math.round(latMax * 100) / 100,
             p95: Math.round(latMax * 100) / 100,
           },
-          fps: Math.round(1000 / frameDelta),
+          fps,
           droppedFrames: droppedFrameCount,
         });
         messageCount = 0;
@@ -138,6 +170,7 @@ export function useSABWorker(): void {
         latCount = 0;
         latMin = Infinity;
         latMax = 0;
+        frameCount = 0;
         droppedFrameCount = 0;
         lastMetricsUpdate = now;
       }
@@ -154,6 +187,9 @@ export function useSABWorker(): void {
       worker.postMessage({ type: 'DISCONNECT' });
       worker.terminate();
       readerRef.current = null;
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, [updateLiveOrderbook, setConnectionStatus, updateMetrics, setIsLeader, setSyncMode]);
 }

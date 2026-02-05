@@ -64,10 +64,12 @@
   top: 0;
   bottom: 0;
   right: 0;
-  width: calc(var(--depth-width, 0) * 1%);
-  transform: translateZ(0); /* GPU composite layer */
+  width: 100%;
+  transform-origin: right center;
+  transform: scaleX(var(--depth-scale, 0));
+  will-change: transform;
   pointer-events: none;
-  transition: width 0.1s ease-out;
+  transition: transform 0.1s ease-out;
 }
 
 /* Bid depth bar */

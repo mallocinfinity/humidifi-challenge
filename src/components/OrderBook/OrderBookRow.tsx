@@ -44,14 +44,14 @@ function arePropsEqual(prev: OrderBookRowProps, next: OrderBookRowProps): boolea
 
 function OrderBookRowComponent({ level, side, maxCumulative }: OrderBookRowProps) {
   // Calculate depth percentage for the bar
-  const depthWidth = maxCumulative > 0
-    ? (level.cumulative / maxCumulative) * 100
+  const depthScale = maxCumulative > 0
+    ? Math.min(1, level.cumulative / maxCumulative)
     : 0;
 
   return (
     <div
       className={`orderbook-row row-${side}`}
-      style={{ '--depth-width': depthWidth } as React.CSSProperties}
+      style={{ '--depth-scale': depthScale } as React.CSSProperties}
     >
       <span className="col-price">{formatPrice(level.price)}</span>
       <span className="col-size">{formatSize(level.size)}</span>

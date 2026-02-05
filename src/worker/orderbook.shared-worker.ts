@@ -9,10 +9,17 @@ import { OrderbookProcessor } from './orderbook-processor.ts';
 
 declare const self: SharedWorkerGlobalScope;
 
-// Port → last seen timestamp (Date.now)
-const portMap = new Map<MessagePort, number>();
+type PortInfo = {
+  lastSeen: number;
+  hidden: boolean;
+  hiddenSince: number | null;
+};
 
-const PING_STALE_MS = 6000;  // Prune ports not seen in 6s
+// Port → metadata
+const portMap = new Map<MessagePort, PortInfo>();
+
+const PING_STALE_MS = 6000;  // Prune visible ports not seen in 6s
+const HIDDEN_STALE_MS = 60000; // Hidden tabs get a much longer grace period
 const PRUNE_INTERVAL = 3000; // Check every 3s
 
 let binanceWS: BinanceWebSocket | null = null;
@@ -23,7 +30,11 @@ let pruneInterval: ReturnType<typeof setInterval> | null = null;
 
 // Broadcast a message to all connected ports
 function broadcastToAll(message: WorkerToMainMessage): void {
-  for (const port of portMap.keys()) {
+  for (const [port, info] of portMap.entries()) {
+    if (message.type === 'ORDERBOOK_UPDATE' && info.hidden) {
+      // Avoid queuing backlogs for hidden tabs; they'll get a fresh slice on resume.
+      continue;
+    }
     port.postMessage(message);
   }
 }
@@ -37,8 +48,9 @@ function broadcastTabCount(): void {
 function pruneStale(): void {
   const now = Date.now();
   let pruned = false;
-  for (const [port, lastSeen] of portMap) {
-    if (now - lastSeen > PING_STALE_MS) {
+  for (const [port, info] of portMap) {
+    const threshold = info.hidden ? HIDDEN_STALE_MS : PING_STALE_MS;
+    if (now - info.lastSeen > threshold) {
       portMap.delete(port);
       pruned = true;
     }
@@ -84,7 +96,7 @@ function handleUpdate(update: BinanceDepthUpdate): void {
 
 // Post current orderbook slice to all tabs
 function postSlice(): void {
-  if (!orderbookProcessor) return;
+  if (!orderbookProcessor || !orderbookProcessor.isDirty) return;
 
   const slice = orderbookProcessor.getSlice();
   broadcastToAll({
@@ -203,13 +215,16 @@ function removePort(port: MessagePort): void {
 // Handle new tab connections
 self.onconnect = (event: MessageEvent) => {
   const port = event.ports[0];
-  portMap.set(port, Date.now());
+  portMap.set(port, { lastSeen: Date.now(), hidden: false, hiddenSince: null });
 
   port.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
     const { type } = e.data;
 
     // Any message from this port refreshes its liveness
-    portMap.set(port, Date.now());
+    const info = portMap.get(port);
+    if (info) {
+      info.lastSeen = Date.now();
+    }
 
     switch (type) {
       case 'CONNECT':
@@ -229,6 +244,20 @@ self.onconnect = (event: MessageEvent) => {
       case 'PING':
         // Liveness already updated above — nothing else needed
         break;
+
+      case 'VISIBILITY': {
+        const portInfo = portMap.get(port);
+        if (portInfo) {
+          portInfo.hidden = e.data.hidden;
+          portInfo.hiddenSince = e.data.hidden ? Date.now() : null;
+          portInfo.lastSeen = Date.now();
+        }
+        if (!e.data.hidden) {
+          // Send a fresh snapshot immediately on resume.
+          sendCurrentState(port);
+        }
+        break;
+      }
 
       case 'SET_DEPTH':
         orderbookProcessor?.setDepth(e.data.depth);

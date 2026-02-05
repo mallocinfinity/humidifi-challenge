@@ -65,8 +65,26 @@ function useSharedWorkerMode(): void {
       worker.port.postMessage({ type: 'PING' });
     }, 2000);
 
+    const handleVisibilityChange = () => {
+      const hidden = document.visibilityState === 'hidden';
+      // Inform SharedWorker so it can avoid pruning / avoid backlogs.
+      worker.port.postMessage({ type: 'VISIBILITY', hidden });
+      if (!hidden) {
+        // Re-register port after background throttling/prune.
+        worker.port.postMessage({ type: 'PING' });
+        worker.port.postMessage({ type: 'CONNECT', ...exchangeConfig });
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
     return () => {
       clearInterval(pingInterval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
       worker.port.postMessage({ type: 'DISCONNECT' });
       worker.port.close();
       sharedWorkerRef.current = null;
