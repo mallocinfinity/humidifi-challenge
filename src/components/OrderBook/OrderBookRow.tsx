@@ -4,26 +4,18 @@
 import { memo } from 'react';
 import type { OrderBookRowProps } from '@/types';
 
-// Format price with commas and 2 decimals
+// Cached formatters — Intl.NumberFormat is ~10x faster than toLocaleString
+// because the locale/options are resolved once at module load, not per call.
+const priceFmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const size4Fmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+const size6Fmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+
 function formatPrice(price: number): string {
-  return price.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return priceFmt.format(price);
 }
 
-// Format size to reasonable precision
 function formatSize(size: number): string {
-  if (size >= 1) {
-    return size.toLocaleString(undefined, {
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4,
-    });
-  }
-  return size.toLocaleString(undefined, {
-    minimumFractionDigits: 6,
-    maximumFractionDigits: 6,
-  });
+  return size >= 1 ? size4Fmt.format(size) : size6Fmt.format(size);
 }
 
 // Custom comparator: only re-render if displayed values actually changed

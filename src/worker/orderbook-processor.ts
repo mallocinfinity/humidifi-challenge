@@ -4,8 +4,8 @@
 import type { BinanceDepthUpdate, BinanceDepthSnapshot, OrderbookSlice, PriceLevel } from '@/types';
 
 export class OrderbookProcessor {
-  private bids: Map<string, number> = new Map();
-  private asks: Map<string, number> = new Map();
+  private bids: Map<number, number> = new Map();
+  private asks: Map<number, number> = new Map();
   private lastId: number = 0;
   private depth: number = 15;
 
@@ -18,18 +18,20 @@ export class OrderbookProcessor {
     this.asks.clear();
 
     for (const [price, quantity] of snapshot.bids) {
+      const p = parseFloat(price);
       const qty = parseFloat(quantity);
-      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
+      if (isNaN(p) || isNaN(qty)) continue;
       if (qty > 0) {
-        this.bids.set(price, qty);
+        this.bids.set(p, qty);
       }
     }
 
     for (const [price, quantity] of snapshot.asks) {
+      const p = parseFloat(price);
       const qty = parseFloat(quantity);
-      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
+      if (isNaN(p) || isNaN(qty)) continue;
       if (qty > 0) {
-        this.asks.set(price, qty);
+        this.asks.set(p, qty);
       }
     }
 
@@ -39,23 +41,25 @@ export class OrderbookProcessor {
   applyDelta(update: BinanceDepthUpdate): void {
     // Apply bid updates
     for (const [price, quantity] of update.b) {
+      const p = parseFloat(price);
       const qty = parseFloat(quantity);
-      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
+      if (isNaN(p) || isNaN(qty)) continue;
       if (qty === 0) {
-        this.bids.delete(price);
+        this.bids.delete(p);
       } else {
-        this.bids.set(price, qty);
+        this.bids.set(p, qty);
       }
     }
 
     // Apply ask updates
     for (const [price, quantity] of update.a) {
+      const p = parseFloat(price);
       const qty = parseFloat(quantity);
-      if (isNaN(qty) || isNaN(parseFloat(price))) continue;
+      if (isNaN(p) || isNaN(qty)) continue;
       if (qty === 0) {
-        this.asks.delete(price);
+        this.asks.delete(p);
       } else {
-        this.asks.set(price, qty);
+        this.asks.set(p, qty);
       }
     }
 
@@ -64,14 +68,15 @@ export class OrderbookProcessor {
 
   getSlice(): OrderbookSlice {
     // Sort and slice bids (highest price first)
+    // Keys are already numbers — no parseFloat needed here
     const sortedBids = Array.from(this.bids.entries())
-      .map(([price, size]) => ({ price: parseFloat(price), size }))
+      .map(([price, size]) => ({ price, size }))
       .sort((a, b) => b.price - a.price)
       .slice(0, this.depth);
 
     // Sort and slice asks (lowest price first)
     const sortedAsks = Array.from(this.asks.entries())
-      .map(([price, size]) => ({ price: parseFloat(price), size }))
+      .map(([price, size]) => ({ price, size }))
       .sort((a, b) => a.price - b.price)
       .slice(0, this.depth);
 

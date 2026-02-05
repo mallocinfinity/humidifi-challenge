@@ -72,6 +72,7 @@ export function useSABWorker(): void {
     let lastFrameTime = performance.now();
     let lastMetricsUpdate = performance.now();
     let messageCount = 0;
+    let droppedFrameCount = 0;
     let latSum = 0;
     let latCount = 0;
     let latMin = Infinity;
@@ -88,7 +89,8 @@ export function useSABWorker(): void {
       const now = performance.now();
       const frameDelta = now - lastFrameTime;
       lastFrameTime = now;
-      const droppedFrames = frameDelta > 16.67 ? 1 : 0;
+      // >20ms = meaningfully behind schedule, not just vsync jitter
+      if (frameDelta > 20) droppedFrameCount++;
 
       // Poll SAB — cached views, zero allocation for version check
       const reader = readerRef.current;
@@ -129,13 +131,14 @@ export function useSABWorker(): void {
             p95: Math.round(latMax * 100) / 100,
           },
           fps: Math.round(1000 / frameDelta),
-          droppedFrames,
+          droppedFrames: droppedFrameCount,
         });
         messageCount = 0;
         latSum = 0;
         latCount = 0;
         latMin = Infinity;
         latMax = 0;
+        droppedFrameCount = 0;
         lastMetricsUpdate = now;
       }
 

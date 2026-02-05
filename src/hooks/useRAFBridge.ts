@@ -39,6 +39,7 @@ export function useRAFBridge(): UseRAFBridgeReturn {
   // RAF loop
   useEffect(() => {
     let isRunning = true;
+    let droppedFrameCount = 0;
 
     // Ignore RAF callback's `now` parameter — it's the frame start timestamp,
     // not the current time. Using it causes negative latency when a message
@@ -52,8 +53,8 @@ export function useRAFBridge(): UseRAFBridgeReturn {
       const frameDelta = now - lastFrameTimeRef.current;
       lastFrameTimeRef.current = now;
 
-      // Check for dropped frames (>16.67ms = missed 60fps target)
-      const droppedFrames = frameDelta > 16.67 ? 1 : 0;
+      // >20ms = meaningfully behind schedule, not just vsync jitter
+      if (frameDelta > 20) droppedFrameCount++;
 
       // If we have new data, push to store
       if (stateRef.current.dirty && stateRef.current.latestData) {
@@ -77,9 +78,10 @@ export function useRAFBridge(): UseRAFBridgeReturn {
             p95: Math.round(tracker.p95 * 100) / 100,
           },
           fps: Math.round(1000 / frameDelta),
-          droppedFrames,
+          droppedFrames: droppedFrameCount,
         });
         messageCountRef.current = 0;
+        droppedFrameCount = 0;
         lastMetricsUpdateRef.current = now;
       }
 
