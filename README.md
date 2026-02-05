@@ -61,7 +61,7 @@ localhost:4173/?mode=sab&exchange=futures
 ## Sync Modes Explained
 
 ### SharedWorker (default)
-Single WebSocket shared across all tabs. Most efficient — one connection, one processor, N consumers.
+Single WebSocket shared across all tabs. Most efficient, one connection, one processor, N consumers.
 
 ### BroadcastChannel
 Leader tab owns the Worker + WebSocket, broadcasts updates to followers via BroadcastChannel. Fallback for Safari (no SharedWorker support). Leader election handles tab close gracefully.
@@ -86,22 +86,6 @@ DedicatedWorker writes orderbook to a SharedArrayBuffer using a custom binary pr
 - **Worker-side processing** — Main thread only renders, never parses/sorts
 - **Direct broadcast** — Leader broadcasts every worker message immediately (no RAF coalescing — RAF is paused for background tabs)
 
-## Technical Decisions & Tradeoffs
-
-### Cumulative totals cascade by design
-Each row shows cumulative sum of all better prices. Recalculated on every update. Alternatives considered:
-- Lazy cumulative (compute on hover) — Rejected: always-visible is standard for trading UIs
-- Virtualization — Unnecessary at 30 rows with 60fps performance
-
-### Sequence gap tolerance
-Binance Futures `@depth` stream has frequent small gaps (50-500 sequence numbers). Strict validation would trigger constant resyncs → rate limiting. Solution: tolerate gaps < 1000, only resync on large gaps.
-
-### SAB uses DedicatedWorker, not SharedWorker
-SharedWorkers don't inherit `crossOriginIsolated` from the page — they need COEP headers on the worker script response itself. DedicatedWorker inherits from parent, simpler setup.
-
-### Port liveness via PING heartbeat
-SharedWorker ports can go stale (tab crash, `port.close()` before DISCONNECT delivered). Solution: main thread pings every 2s, worker prunes ports not seen in 6s.
-
 ## Bugs Fixed
 
 1. **TypedArray allocation in RAF loop** — Initial SAB was 5x slower than SharedWorker. Root cause: `new Int32Array()` created 60x/sec for version check. Fix: cached `SABReader`/`SABWriter` classes.
@@ -111,14 +95,6 @@ SharedWorker ports can go stale (tab crash, `port.close()` before DISCONNECT del
 3. **Stale ports inflate tab count** — `port.close()` before DISCONNECT delivered. Fix: PING heartbeat + prune interval.
 
 4. **Futures rate limiting (429/418)** — Every sequence gap triggered snapshot fetch. Fix: gap tolerance threshold + max retry limit.
-
-## State Management
-
-**Zustand** was chosen over Redux/Context for:
-- **Selector-based subscriptions** — Components only re-render when their specific slice changes, not on every store update
-- **No Context wrapper** — Avoids provider hell and React tree coupling
-- **Minimal boilerplate** — No actions/reducers/dispatch ceremony
-- **Worker-friendly** — Store can be updated from RAF callbacks without hooks
 
 ## Project Structure
 ```
@@ -165,6 +141,15 @@ The MetricsPanel displays:
 - Service Worker for offline caching of last known state
 - E2E tests with Playwright
 - Configurable depth levels via UI
+- Better tab tracking
+  
+### Display Refresh Rate
+
+Performance metrics are optimized for 60Hz displays. On high refresh rate displays (120Hz+), reported latency may appear slightly higher due to:
+- RAF callbacks firing 2x as often, increasing measurement overhead
+- More frames to render per second with the same data rate (10 updates/sec)
+
+The actual data processing performance is identical, only the measurement frequency changes. For consistent benchmarking, test on a 60Hz display or throttle via Chrome DevTools.
 
 ## Tech Stack
 
